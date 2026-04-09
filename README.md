@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="logo.png" width="400" alt="Indexed Parquet Dataset Logo">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-0.1.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-blue.svg" alt="Python Version">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-green.svg" alt="License">
+</p>
+
 # Indexed Parquet Dataset
+
 
 High-performance O(1) random access indexer for Parquet datasets in PyTorch and Python.
 
@@ -43,9 +54,11 @@ graph TD
 
 ## Features
 
-- **Fluent API**: Chainable methods for data processing including `shuffle`, `filter`, `map`, `limit`, `rename_column`, `copy`, and `concat`.
-- **Data Export**: `clone` any filtered/shuffled state directly to a new Parquet file with a unified schema.
-- **Dynamic Schema Evolution**: Support for concatenating datasets with different schemas and aliases.
+- **Fluent API**: Chainable methods for data processing including `shuffle`, `filter`, `alias`, `split`, `limit`, `rename`, `copy`, and `concat`.
+- **Computed Columns**: Create new columns or replace existing ones using Python functions (lambdas) via the `alias` method.
+- **Explicit Casting**: Change column types on the fly with the `cast` method.
+- **Materialization**: Bake all transformations and computations into a real Parquet file via `clone(path)`, eliminating runtime overhead for streaming.
+- **Dynamic Schema Evolution**: Support for concatenating datasets with different schemas and automatic type alignment.
 - **Linear Scalability**: Indexed access with O(1) complexity regardless of the dataset size.
 - **Lazy Loading**: Concurrent safe file access with minimal memory footprint.
 - **PyTorch Integration**: Fully compatible with `torch.utils.data.Dataset`.
@@ -92,11 +105,13 @@ The dataset supports a chainable API for common data preparation tasks:
 dataset = (IndexedParquetDataset.from_folder("./data")
            .filter(lambda x: x["split"] == "train")
            .shuffle(seed=42)
-           .map(lambda x: {**x, "text_len": len(x["text"])})
+           .alias("text_len", lambda x: len(x["text"])) # Computed column
+           .cast("text_len", "int")                    # Explicit casting
            .limit(10000))
 
 # Accessing transformed data
-sample = dataset[0]
+sample = dataset[0] # sample["text_len"] is now available
+```
 
 ### Advanced Manipulation
 
@@ -112,14 +127,20 @@ ds_copy = dataset.copy()
 combined_ds = dataset1.concat(dataset2)
 ```
 
-#### Cloning (Exporting)
-Save the current "visible" state of the dataset (after all filters and renames) to a new physical Parquet file:
+#### Materialization (Cloning)
+To avoid performance degradation when using multiple computed columns or heavy filters, you can "bake" the current state into a new Parquet file:
 
 ```python
-# Save current state (filtered, shuffled, renamed) to a new file
-# Memory efficient: uses batch streaming internally
-file_path = dataset.clone("./output_dir", "final_distillation.parquet")
+# to_parquet: just save to disk (export)
+dataset.to_parquet("baked_data.parquet")
+
+# clone: save to disk AND return a new dataset instance 
+# pointing to the new file (zero-overhead)
+fast_dataset = dataset.clone("materialized.parquet")
 ```
+
+> [!NOTE]
+> `clone()` always requires a destination path. It ensures that all Python-based computations (lambdas) are executed once and their results are stored as real values in the new file.
 ```
 
 ### Batch Reading
@@ -145,10 +166,10 @@ loaded_dataset = IndexedParquetDataset.load_index("my_dataset_index.pkl")
 
 ## Technical Requirements
 
-- **Polars**: Fast data manipulation.
 - **PyArrow**: Backend for Parquet file operations.
 - **NumPy**: Efficient array management for indexing.
-- **Tqdm**: Progress bars for indexing operations.
+- **PyTorch**: Seamless integration for machine learning pipelines.
+- **Pandas**: Schema management and metadata utilities.
 
 ## License
 

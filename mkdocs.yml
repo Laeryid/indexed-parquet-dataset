@@ -1,0 +1,69 @@
+site_name: Indexed Parquet Dataset
+site_description: High-performance O(1) random access indexer for Parquet datasets in PyTorch
+site_url: https://your-username.github.io/indexed-parquet-dataset/
+repo_url: https://github.com/your-username/indexed-parquet-dataset/
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+
+
+nav:
+  - Home: index.md
+  - Tutorials:
+    - Quick Start: tutorials/quickstart.md
+  - How-to Guides:
+    - Schema Evolution: how-to/schema-evolution.md
+  - API Reference:
+    - Overview: reference/api.md
+  - Explanation:
+    - Architecture: explanation/architecture.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html

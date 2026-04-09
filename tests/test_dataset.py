@@ -30,6 +30,7 @@ def test_data_dir(tmp_path):
     return str(test_dir)
 
 def test_basic_indexing(test_data_dir):
+    """[POSITIVE TEST] Verifies basic indexing and random access."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     assert len(dataset) == 35
     
@@ -40,6 +41,7 @@ def test_basic_indexing(test_data_dir):
     assert dataset[34]["id"] == 34
 
 def test_shuffle(test_data_dir):
+    """[POSITIVE TEST] Verifies shuffle operation and data consistency."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     shuffled = dataset.shuffle(seed=42)
     
@@ -60,6 +62,7 @@ def test_shuffle(test_data_dir):
         assert row["val"] == expected_val
 
 def test_filter(test_data_dir):
+    """[POSITIVE TEST] Verifies lambda-based filtering."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     filtered = dataset.filter(lambda x: x["label"] == 1)
     assert len(filtered) == 20
@@ -67,25 +70,29 @@ def test_filter(test_data_dir):
         assert filtered[i]["label"] == 1
 
 def test_limit(test_data_dir):
+    """[POSITIVE TEST] Verifies result limiting."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     limited = dataset.limit(5)
     assert len(limited) == 5
     assert limited[4]["id"] == 4
 
-def test_map(test_data_dir):
+def test_alias(test_data_dir):
+    """[POSITIVE TEST] Verifies column aliasing/computed columns."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
-    mapped = dataset.map(lambda x: {**x, "val_len": len(x["val"])})
+    mapped = dataset.alias("val_len", lambda x: len(x["val"]))
     assert "val_len" in mapped[0]
     assert mapped[0]["val_len"] == 3 # "a_0"
 
 def test_rename(test_data_dir):
+    """[POSITIVE TEST] Verifies column renaming."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
-    renamed = dataset.rename_column("val", "text")
+    renamed = dataset.rename("val", "text")
     assert "text" in renamed[0]
     assert "val" not in renamed[0]
     assert renamed[0]["text"] == "a_0"
 
 def test_batch_reading(test_data_dir):
+    """[POSITIVE TEST] Verifies batch access via list of indices."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     batch = dataset[[0, 10, 30]] # uses __getitems__
     assert len(batch) == 3
@@ -94,6 +101,7 @@ def test_batch_reading(test_data_dir):
     assert batch[2]["id"] == 30
 
 def test_save_load_index(test_data_dir, tmp_path):
+    """[POSITIVE TEST] Verifies index serialization and deserialization."""
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
     index_path = str(tmp_path / "index.pkl")
     dataset.save_index(index_path)

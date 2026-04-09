@@ -34,6 +34,7 @@ class IndexedParquetDataset(Dataset):
         auto_fill: bool = False,
         max_open_files: int = 128,
         _type_casts: Optional[Dict[str, type]] = None,
+        selected_columns: Optional[List[str]] = None,
     ):
         """Initializes the dataset.
 
@@ -64,6 +65,7 @@ class IndexedParquetDataset(Dataset):
 
         self.fill_values_by_column = fill_values_by_column or {}
         self._type_casts: Dict[str, type] = _type_casts or {}  # Internal: concat upcasting
+        self.selected_columns = selected_columns
 
         # indices allows for shuffling, filtering, and subsets without modifying the base index
         if indices is not None:
@@ -106,6 +108,9 @@ class IndexedParquetDataset(Dataset):
     @property
     def schema(self) -> List[str]:
         """Returns the list of column names available in the dataset (after mapping)."""
+        if self.selected_columns is not None:
+            return self.selected_columns
+            
         all_cols = set()
         
         # 1. Base columns from original files
@@ -247,8 +252,31 @@ class IndexedParquetDataset(Dataset):
         local_idx_to_result = {}
         target_schema = self.schema
         
+        # Performance optimization: determine source columns to read from disk
+        # We only read columns that are present in the target_schema and have a 
+        # direct mapping to original columns, OR if we have transforms (which might
+        # depend on anything, so we read all if transforms are active).
+        # Actually, let's just map target_schema back to source columns.
+        requested_source_cols = None
+        if self.selected_columns is not None and not self.mapper.transforms:
+            # We can optimize only if there are no arbitrary row transforms
+            requested_source_cols = []
+            for col in target_schema:
+                if col == self.source_column_name:
+                    continue
+                src_col = self.mapper.get_source_column(col, file_path)
+                if src_col in file_info.columns:
+                    requested_source_cols.append(src_col)
+            
+            # If no columns were found but we need some, we must read at least one 
+            # to keep the row count correct, but PyArrow handles empty column lists.
+            # However, check for virtual columns.
+            if not requested_source_cols and target_schema:
+                # Fallback to reading all if optimization feels risky
+                requested_source_cols = None
+
         for rg_idx, rg_local_indices in rg_to_indices.items():
-            table = pf.read_row_group(rg_idx)
+            table = pf.read_row_group(rg_idx, columns=requested_source_cols)
             rg_start_offset = sum(file_info.row_groups[:rg_idx])
             
             for l_idx_in_rg in rg_local_indices:
@@ -293,6 +321,11 @@ class IndexedParquetDataset(Dataset):
                         val = self._deep_fill_nones(val, fill)
 
                     mapped_item[col] = val
+
+                # 3. Apply row-level transformations (new)
+                # These are applied AFTER schema mapping to allow adding new columns
+                for row_fn in self.mapper.row_transforms:
+                    mapped_item = row_fn(mapped_item)
                 
                 local_idx_to_result[l_idx_in_rg + rg_start_offset] = mapped_item
 
@@ -346,6 +379,7 @@ class IndexedParquetDataset(Dataset):
             self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
+            selected_columns=self.selected_columns,
         )
 
     def _clone_with_mapper(self, new_mapper: SchemaMapper) -> 'IndexedParquetDataset':
@@ -355,7 +389,46 @@ class IndexedParquetDataset(Dataset):
             self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
+            selected_columns=self.selected_columns,
         )
+
+    def map(
+        self, 
+        fn: Callable[[dict], dict], 
+        *, 
+        remove_columns: Optional[List[str]] = None,
+        output_schema: Optional[List[str]] = None
+    ) -> 'IndexedParquetDataset':
+        """Applies a row-level transformation to the dataset.
+        
+        Args:
+            fn: A function that takes a row (dict) and returns a transformed row (dict).
+            remove_columns: Optional list of columns to remove from the result.
+            output_schema: Optional explicit list of columns for the new schema.
+            
+        Returns:
+            A new IndexedParquetDataset instance.
+        """
+        new_mapper = SchemaMapper(
+            mapping=self.mapper.mapping.copy(),
+            file_mappings=self.mapper.file_mappings.copy(),
+            transforms=self.mapper.transforms.copy(),
+            row_transforms=self.mapper.row_transforms.copy()
+        )
+        effective_fn = fn
+        if remove_columns:
+            def _wrapped_fn(row, _fn=fn, _cols=remove_columns):
+                result = _fn(row)
+                for c in _cols:
+                    result.pop(c, None)
+                return result
+            effective_fn = _wrapped_fn
+            
+        new_mapper.row_transforms.append(effective_fn)
+        ds = self._clone_with_mapper(new_mapper)
+        if output_schema:
+            ds.selected_columns = output_schema
+        return ds
 
 
     def train_test_split(
@@ -411,6 +484,56 @@ class IndexedParquetDataset(Dataset):
     def copy(self) -> 'IndexedParquetDataset':
         """Returns a copy of the dataset."""
         return self._clone_with_indices(self.indices.copy())
+
+    def select_columns(self, columns: List[str]) -> 'IndexedParquetDataset':
+        """Selects a subset of columns to be returned.
+        
+        Args:
+            columns: List of column names to keep.
+            
+        Returns:
+            A new IndexedParquetDataset instance with updated schema.
+        """
+        # Validate columns exist in current schema
+        current_schema = self.schema
+        for col in columns:
+            if col not in current_schema:
+                warnings.warn(f"Column '{col}' not found in current schema.")
+                
+        ds = self.copy()
+        ds.selected_columns = columns
+        return ds
+
+    def sample(self, n: int, seed: Optional[int] = None) -> 'IndexedParquetDataset':
+        """Returns a random sample of n rows from the dataset.
+        
+        Args:
+            n: Number of rows to sample.
+            seed: Random seed for reproducibility.
+            
+        Returns:
+            A new IndexedParquetDataset instance.
+        """
+        if n > len(self):
+            n = len(self)
+        
+        rng = np.random.default_rng(seed)
+        indices = rng.choice(len(self), size=n, replace=False)
+        return self.select(indices)
+
+    def iter_batches(self, batch_size: int, shuffle: bool = False, seed: Optional[int] = None):
+        """Yields batches of data from the dataset.
+        
+        Args:
+            batch_size: Number of rows per batch.
+            shuffle: Whether to shuffle before iterating.
+            seed: Random seed for shuffling.
+        """
+        ds = self.shuffle(seed) if shuffle else self
+        n = len(ds)
+        for i in range(0, n, batch_size):
+            end = min(i + batch_size, n)
+            yield ds[i:end]
 
     def alias(self, name: str, source: Union[str, Callable]) -> 'IndexedParquetDataset':
         """Creates a new alias for a column or a new computed column.
@@ -489,20 +612,49 @@ class IndexedParquetDataset(Dataset):
             
         return self.alias(column, transform)
 
-    def to_parquet(self, path: str, chunk_size: int = 1024):
-        """Materializes the dataset to a Parquet file."""
+    def to_parquet(self, path: str, chunk_size: int = 1024, shard_size: Optional[int] = None):
+        """Materializes the dataset to one or more Parquet files.
+        
+        Args:
+            path: Output file path or directory (if sharding).
+            chunk_size: Cache size for intermediate batch collection.
+            shard_size: If set, splits the dataset into multiple files of this many rows.
+        """
+        if shard_size:
+            os.makedirs(path, exist_ok=True)
+            
         writer = None
-        for i in range(0, len(self), chunk_size):
-            batch_indices = list(range(i, min(i + chunk_size, len(self))))
+        rows_in_current_shard = 0
+        shard_idx = 0
+        
+        def get_shard_path():
+            if shard_size:
+                return os.path.join(path, f"part_{shard_idx:04d}.parquet")
+            return path
+
+        effective_chunk_size = min(chunk_size, shard_size) if shard_size else chunk_size
+        
+        for i in range(0, len(self), effective_chunk_size):
+            batch_indices = list(range(i, min(i + effective_chunk_size, len(self))))
             batch_data = self[batch_indices]
             
-            # Ensure we have data
             if not batch_data: continue
             
             table = pa.Table.from_pylist(batch_data)
+            
+            # Sharding logic: if we are at the start of a new shard, close old and open new
+            if shard_size and rows_in_current_shard >= shard_size:
+                if writer:
+                    writer.close()
+                    writer = None
+                shard_idx += 1
+                rows_in_current_shard = 0
+            
             if writer is None:
-                writer = pq.ParquetWriter(path, table.schema)
+                writer = pq.ParquetWriter(get_shard_path(), table.schema)
+            
             writer.write_table(table)
+            rows_in_current_shard += len(batch_data)
             
         if writer:
             writer.close()
@@ -588,45 +740,92 @@ class IndexedParquetDataset(Dataset):
 
         return self._clone_with_indices(current_indices)
 
-    def concat(self, other: 'IndexedParquetDataset') -> 'IndexedParquetDataset':
-        """Concatenates datasets with type checking."""
-        new_files = self.index.files + other.index.files
-        new_total_rows = self.index.total_rows + other.index.total_rows
+    def merge(self, other: 'IndexedParquetDataset') -> 'IndexedParquetDataset':
+        """Merges this dataset with another one, deduplicating identical rows.
+        
+        A row is considered identical if it comes from the same file and has
+        the same local row index.
+        """
+        # 1. Unified unique files
+        self_paths = {f.path: i for i, f in enumerate(self.index.files)}
+        other_paths = {f.path: i for i, f in enumerate(other.index.files)}
+        
+        all_unique_paths = sorted(list(set(self_paths.keys()) | set(other_paths.keys())))
+        path_to_new_idx = {path: i for i, path in enumerate(all_unique_paths)}
+        
+        new_files_info = []
+        for path in all_unique_paths:
+            if path in self_paths:
+                new_files_info.append(self.index.files[self_paths[path]])
+            else:
+                new_files_info.append(other.index.files[other_paths[path]])
+        
+        # 2. Map indices to row identity (new_file_idx, local_idx)
+        def get_row_identities(ds, path_map):
+            ids = []
+            for i in range(len(ds)):
+                f_idx, l_idx = ds._get_file_and_local_idx(i)
+                f_path = ds.index.files[f_idx].path
+                new_f_idx = path_map[f_path]
+                ids.append((new_f_idx, l_idx))
+            return ids
+
+        self_ids = get_row_identities(self, path_to_new_idx)
+        other_ids = get_row_identities(other, path_to_new_idx)
+        
+        # 3. Deduplicate preserving order (self first, then new from other)
+        # We use a dictionary as an ordered set
+        seen = {}
+        unified_ids = []
+        for row_id in (self_ids + other_ids):
+            if row_id not in seen:
+                seen[row_id] = True
+                unified_ids.append(row_id)
+        
+        # 4. Create new BaseIndex metadata
+        new_total_rows_meta = sum(f.num_rows for f in new_files_info)
         new_all_columns = sorted(list(set(self.index.all_columns) | set(other.index.all_columns)))
         
+        # 5. Type merging logic (upcasting conflicts)
         new_column_types = self.index.column_types.copy()
         type_casts = self._type_casts.copy()
-        
         for col, o_type in other.index.column_types.items():
             if col in new_column_types:
                 s_type = new_column_types[col]
                 if s_type != o_type:
-                    common_type = 'string' # Safety default
+                    common_type = 'string'
                     s_is_float = 'float' in s_type or 'double' in s_type
                     o_is_float = 'float' in o_type or 'double' in o_type
                     s_is_int = 'int' in s_type
                     o_is_int = 'int' in o_type
                     
-                    if (s_is_int and o_is_float) or (s_is_float and o_is_int):
-                        common_type = 'double'
-                    elif s_is_float and o_is_float:
+                    if (s_is_int and o_is_float) or (s_is_float and o_is_int) or (s_is_float and o_is_float):
                         common_type = 'double'
                     
                     warnings.warn(f"Type mismatch for column '{col}': {s_type} vs {o_type}. Upcasting to {common_type}.")
                     new_column_types[col] = common_type
-                    
                     cast_fn = str if common_type == 'string' else (float if common_type == 'double' else None)
                     if cast_fn: type_casts[col] = cast_fn
             else:
                 new_column_types[col] = o_type
-                
-        new_index = BaseIndex(new_files, new_total_rows, new_all_columns, new_column_types)
-        new_indices = np.concatenate([self.indices, other.indices + self.index.total_rows])
 
+        new_index = BaseIndex(new_files_info, new_total_rows_meta, new_all_columns, new_column_types)
+        
+        # 6. Re-calculate global indices based on new file sequence
+        new_file_offsets = np.zeros(len(new_files_info) + 1, dtype=int)
+        current_offset = 0
+        for i, f in enumerate(new_files_info):
+            new_file_offsets[i] = current_offset
+            current_offset += f.num_rows
+        new_file_offsets[-1] = current_offset
+        
+        new_indices = np.array([new_file_offsets[f_idx] + l_idx for f_idx, l_idx in unified_ids], dtype=int)
+        
+        # 7. Merge mappers
         new_mapper = self.mapper.merge(
             other.mapper,
-            [f.path for f in self.index.files],
-            [f.path for f in other.index.files],
+            list(self_paths.keys()),
+            list(other_paths.keys())
         )
 
         return IndexedParquetDataset(
@@ -635,6 +834,7 @@ class IndexedParquetDataset(Dataset):
             self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
             max_open_files=self.max_open_files,
             _type_casts=type_casts,
+            selected_columns=self.selected_columns
         )
 
     def get_supported_types(self) -> Dict[str, Any]:

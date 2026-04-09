@@ -29,13 +29,13 @@ def test_concat_type_upcasting(type_mismatch_dir):
     ds2 = IndexedParquetDataset.from_folder(type_mismatch_dir, pattern="f2.parquet")
     
     with pytest.warns(UserWarning, match="Type mismatch for column 'id'"):
-        ds_concat = ds1.concat(ds2)
+        ds_merge = ds1.merge(ds2)
     
-    assert len(ds_concat) == 4
+    assert len(ds_merge) == 4
     # All values should be read as floats now
-    assert isinstance(ds_concat[0]["id"], float)
-    assert ds_concat[0]["id"] == 1.0
-    assert ds_concat[2]["id"] == 3.5
+    assert isinstance(ds_merge[0]["id"], float)
+    assert ds_merge[0]["id"] == 1.0
+    assert ds_merge[2]["id"] == 3.5
 
 @pytest.fixture
 def hierarchy_dir(tmp_path):
@@ -69,7 +69,7 @@ def test_fill_values_hierarchy(hierarchy_dir):
     df2.to_parquet(os.path.join(d2, "f2.parquet"))
     ds2 = IndexedParquetDataset.from_folder(d2)
     
-    ds_final = ds.concat(ds2)
+    ds_final = ds.merge(ds2)
     
     # Row 0 (from f1) belongs to ds (hierarchy_dir)
     # It doesn't have 'missing_col' or 'other_col'

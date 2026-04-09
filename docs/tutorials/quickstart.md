@@ -1,10 +1,10 @@
-# Quick Start Guide
+# Быстрый старт
 
-This tutorial will walk you through the basic steps of using `indexed-parquet-dataset` to manage large Parquet files for machine learning.
+Этот туториал поможет вам за 5 минут освоить базовые возможности `indexed-parquet-dataset`.
 
-## Step 1: Prepare your data
+## Шаг 1: Подготовка данных
 
-Suppose you have a folder structure with multiple Parquet files:
+Допустим, у вас есть папка с несколькими Parquet файлами:
 
 ```text
 data/
@@ -14,71 +14,92 @@ data/
     part3.parquet
 ```
 
-## Step 2: Initialize the Dataset
+## Шаг 2: Инициализация датасета
 
-The easiest way to get started is by using `from_folder`. It scans the directory, indexes all files, and creates a dataset object.
+Используйте метод `from_folder`. Он сканирует директорию, индексирует файлы и создает объект датасета.
 
 ```python
 from indexed_parquet import IndexedParquetDataset
 
+# Сканируем рекурсивно все .parquet файлы
 dataset = IndexedParquetDataset.from_folder("data", pattern="*.parquet", recursive=True)
 
-print(f"Total rows: {len(dataset)}")
-print(f"Columns: {dataset.schema}")
+print(f"Всего строк: {len(dataset):,}")
+print(f"Колонки: {dataset.schema}")
 ```
 
-## Step 3: Accessing Data
+## Шаг 3: Доступ к данным
 
-You can access rows by index just like a regular Python list. This operation is **O(1)** and does not depend on the dataset size.
+Вы можете обращаться к строкам по индексу, как к обычному списку. Эта операция выполняется за **O(1)** и не зависит от размера данных.
 
 ```python
-# Single row access
+# Доступ к одной строке
 row = dataset[0]  # {'id': 1, 'name': 'Item A', ...}
 
-# Slidcing
-subset = dataset[10:20]  # Returns a list of dictionaries
+# Слайсы (возвращают список словарей)
+subset = dataset[10:20]  
 
-# Fancy indexing
-items = dataset[[1, 5, 100]] # Returns a list of dictionaries
+# Выборка по списку индексов (Fancy indexing)
+items = dataset[[1, 5, 100]] 
 ```
 
-## Step 4: Shuffling and Splitting
+## Шаг 4: Трансформации (Fluent API)
 
-Working with training and validation sets is easy with built-in methods.
+Библиотека поддерживает цепочки вызовов для подготовки данных:
 
 ```python
-# Shuffle the whole dataset
-train_ds = dataset.shuffle(seed=42)
+processed_ds = (dataset
+                .filter(lambda x: x["category"] == "electronics")
+                .shuffle(seed=42)
+                .alias("price_usd", lambda x: x["price"] * 0.01) # Новая колонка
+                .limit(5000))
 
-# Split into 80% train and 20% test
-train_ds, test_ds = dataset.train_test_split(test_size=0.2, seed=42)
-
-print(f"Training rows: {len(train_ds)}")
-print(f"Testing rows: {len(test_ds)}")
+print(f"Обработано строк: {len(processed_ds)}")
 ```
 
-## Step 5: Integration with PyTorch
+## Шаг 5: Анализ датасета
 
-The `IndexedParquetDataset` class inherits from `torch.utils.data.Dataset` (if torch is installed), so it works out-of-the-box with `DataLoader`.
+Метод `.info()` выводит подробную таблицу со статистикой по каждому файлу и покрытию колонок. Это очень удобно для отладки.
+
+```python
+dataset.info()
+```
+
+## Шаг 6: Сохранение индекса
+
+Сканирование миллионов строк может занять время. Чтобы не делать это каждый раз, сохраните индекс в файл:
+
+```python
+# Сохраняем
+dataset.save_index("my_index.pkl")
+
+# Загружаем мгновенно в следующий раз
+dataset = IndexedParquetDataset.load_index("my_index.pkl")
+```
+
+## Шаг 7: Интеграция с PyTorch
+
+`IndexedParquetDataset` наследуется от `torch.utils.data.Dataset`, поэтому он работает "из коробки" с `DataLoader`.
 
 ```python
 from torch.utils.data import DataLoader
 
 loader = DataLoader(
-    train_ds, 
+    processed_ds, 
     batch_size=32, 
     shuffle=True, 
     num_workers=4
 )
 
 for batch in loader:
-    # batch is a dictionary of tensors/lists
-    images = batch['image']
-    labels = batch['label']
-    ...
+    # batch — это словарь тензоров/списков
+    print(batch['price_usd'])
+    break
 ```
 
-## Next Steps
+---
 
-- Learn about handling [Schema Evolution](../how-to/schema-evolution.md) when your Parquet files have different structures.
-- Dive into the [API Reference](../reference/api.md) for detailed class documentation.
+**Что дальше?**
+- Узнайте об [Эволюции схем](../how-to/schema-evolution.md), если ваши файлы имеют разную структуру.
+- Посмотрите, как построить полный [Deep Learning Pipeline](deep_learning.md).
+- Изучите [Операции с колонками](../how-to/column-ops.md) для сложной предобработки.

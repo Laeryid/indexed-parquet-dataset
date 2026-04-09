@@ -1,38 +1,65 @@
-# Architecture and Performance
+# Архитектура и производительность
 
-This page explains how `indexed-parquet-dataset` achieves O(1) random access and handles large-scale data efficiently.
+На этой странице объясняется, как `indexed-parquet-dataset` обеспечивает случайный доступ O(1) и эффективно работает с терабайтами данных.
 
-## The Indexing Strategy
+## Стратегия индексации
 
-Unlike standard Parquet readers that often require scanning row groups to find a specific row index, this library pre-calculates a global index map during initialization.
+В отличие от стандартных библиотек чтения Parquet, которые часто требуют сканирования всех групп строк (Row Groups) для поиска конкретной записи, наша библиотека строит глобальную карту индексов при инициализации.
 
-### Initialization Scan
-When you call `from_folder`, the library:
-1.  Iterates through all Parquet files found.
-2.  Reads only the **metadata** (not the data) of each file.
-3.  Records the number of rows in every **Row Group** of every file.
-4.  Calculates cumulative offsets.
+### 1. Сканирование (Initialization)
+Когда вы вызываете `from_folder`, библиотека:
+1.  Обходит все файлы Parquet по указанному пути.
+2.  Читает только **метаданные** (не сами данные) каждого файла.
+3.  Извлекает количество строк в каждой группе строк (Row Group) каждого файла.
+4.  Вычисляет кумулятивные оффсеты (префиксные суммы).
 
-### Instant Lookup
-When you request an index `i`:
-1.  We use binary search (`numpy.searchsorted`) on cumulative offsets to find which file contains row `i`.
-2.  We find the specific Row Group within that file.
-3.  We open the file and read exactly that Row Group, fetching only the requested row.
+**Результат**: Легковесная карта в оперативной памяти, которая говорит: *"строка #1,500,000 находится в файле X, в группе строк Y, на позиции Z"*.
 
-## Memory Management
+### 2. Мгновенный поиск (Lookup)
+При запросе `dataset[i]`:
+1.  Используется бинарный поиск (`numpy.searchsorted`) по оффсетам для поиска нужного файла за **O(log N_files)**.
+2.  Вычисляется локальный индекс внутри файла.
+3.  Файл открывается (или берется из кэша), и считывается **только одна** нужная Row Group.
 
-### Lazy Handle Loading
-Opening thousands of Parquet files simultaneously would exceed system file descriptor limits. To prevent this, the library uses an **LRU (Least Recently Used) Cache** for file handles.
+## Управление ресурсами
 
-By default, it keeps up to 128 file handles open. When a 129th file is needed, the least recently used one is closed automatically. You can adjust this via the `max_open_files` parameter.
+### Lazy Handle Loading (LRU Cache)
+Открытие тысяч файлов одновременно приведет к превышению лимита файловых дескрипторов ОС. Чтобы этого не произошло, библиотека использует **LRU (Least Recently Used) кэш** для открытых файлов.
 
-### Efficient Data Transfer
-When reading a row, `indexed-parquet-dataset` uses PyArrow's low-level `read_row_group` API. If you have selected specific columns, only the data for those columns is read from disk, significantly reducing I/O.
+По умолчанию удерживается до 128 открытых файлов. Когда требуется 129-й, самый "старый" файл закрывается автоматически. Вы можете управлять этим через параметр `max_open_files`.
 
-## Schema Evolution Engine
+### Экономия I/O
+При чтении строки библиотека запрашивает у PyArrow только те колонки, которые необходимы для финального результата. Если вы использовали `select_columns`, данные остальных колонок даже не будут считаны с диска.
 
-The library acts as a virtualization layer between the raw Parquet files and your application.
+## Работа в многопроцессорных режимах (PyTorch)
 
-1.  **Uniform View**: Even if `File A` has columns `[X, Y]` and `File B` has `[X, Z]`, the dataset provides a unified schema `[X, Y, Z]`.
-2.  **Mapping Layer**: A `SchemaMapper` object handles name translations and missing value injections in real-time as rows are fetched.
-3.  **Recursion for Nested Data**: For complex types like `Struct` columns, the library recursively sanitizes the data to ensure no `None` values break training loops (especially important for PyTorch's `default_collate`).
+Для эффективного обучения моделей в PyTorch используется `DataLoader` с `num_workers > 0`. Это означает, что данные читаются параллельно в нескольких процессах.
+
+`indexed-parquet-dataset` спроектирован так, чтобы быть полностью **Pickle-совместимым**:
+1.  Сам индекс (BaseIndex) легко сериализуется.
+2.  Открытые дескрипторы файлов **не сериализуются**. Вместо этого каждый воркер (процесс) при первом обращении к данным открывает свои собственные файлы.
+3.  Это гарантирует отсутствие конфликтов доступа к файлам между процессами.
+
+## Схема прохождения данных (Data Flow)
+
+```mermaid
+graph LR
+    Disk[(Parquet Files)] -- "1. Read Metadata" --> Indexer
+    Indexer -- "2. Build Presums" --> Index
+    
+    User[dataset[idx]] --> Index
+    Index -- "3. File + RowGroup" --> LRUCache
+    LRUCache -- "4. Open/Reuse" --> PF[PyArrow File]
+    PF -- "5. Read RowGroup" --> Mapper
+    
+    Mapper -- "6. Rename/Cast/Map" --> Output[Row Dict]
+```
+
+## Когда O(1) может замедлиться?
+
+Хотя поиск индекса всегда мгновенный, время выдачи строки может расти, если:
+-   **Медленное хранилище**: HDD или сетевые диски с высокими задержками (latency).
+-   **Слишком много трансформаций**: Если у вас длинная цепочка из `.map()` и `.alias(lambda)`, Python тратит время на их выполнение.
+-   **Очень маленькие Row Groups**: Если файл разбит на тысячи крошечных групп, накладные расходы на чтение метаданных группы могут стать заметными. 
+
+В таких случаях рекомендуется использовать [материализацию](../how-to/materialization.md) через `.clone()`.

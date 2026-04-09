@@ -20,6 +20,10 @@
       
       
         
+          <link rel="alternate" href="./" hreflang="en">
+        
+          <link rel="alternate" href="../../ru/how-to/materialization/" hreflang="ru">
+        
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -27,7 +31,7 @@
     
     
       
-        <title>Материализация и экспорт - Indexed Parquet Dataset</title>
+        <title>Materialization - Indexed Parquet Dataset</title>
       
     
     
@@ -80,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="#materialization-and-export" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Материализация и экспорт
+              Materialization
             
           </span>
         </div>
@@ -150,6 +154,32 @@
     
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../../ru/how-to/materialization/" hreflang="ru" class="md-select__link">
+              Русский
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
     
     
       
@@ -233,7 +263,7 @@
   
     
   
-  Главная
+  Home
 
       </a>
     </li>
@@ -252,7 +282,7 @@
           
   
   
-  Обучение
+  Tutorials
 
         </a>
       </li>
@@ -274,7 +304,7 @@
           
   
   
-  Руководства
+  How-to Guides
 
         </a>
       </li>
@@ -294,7 +324,7 @@
           
   
   
-  Справочник API
+  API Reference
 
         </a>
       </li>
@@ -314,7 +344,7 @@
           
   
   
-  Описание
+  Explanation
 
         </a>
       </li>
@@ -381,7 +411,7 @@
   <span class="md-ellipsis">
     
   
-    Главная
+    Home
   
 
     
@@ -426,7 +456,7 @@
   <span class="md-ellipsis">
     
   
-    Обучение
+    Tutorials
   
 
     
@@ -442,7 +472,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Обучение
+    Tutorials
   
 
           </label>
@@ -462,7 +492,7 @@
   <span class="md-ellipsis">
     
   
-    Быстрый старт
+    Quickstart
   
 
     
@@ -546,7 +576,7 @@
   <span class="md-ellipsis">
     
   
-    Руководства
+    How-to Guides
   
 
     
@@ -562,7 +592,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Руководства
+    How-to Guides
   
 
           </label>
@@ -582,7 +612,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Schema Evolution
   
 
     
@@ -619,7 +649,7 @@
   <span class="md-ellipsis">
     
   
-    Материализация и экспорт
+    Materialization
   
 
     
@@ -637,7 +667,7 @@
   <span class="md-ellipsis">
     
   
-    Материализация и экспорт
+    Materialization
   
 
     
@@ -663,22 +693,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#to_parquet" class="md-nav__link">
+  <a href="#to_parquet-method" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Метод to_parquet
+        to_parquet Method
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Метод to_parquet">
+    <nav class="md-nav" aria-label="to_parquet Method">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#sharding" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Шардирование (Sharding)
+        Sharding
       
     </span>
   </a>
@@ -691,10 +721,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#clone" class="md-nav__link">
+  <a href="#clone-method-recommended" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Метод clone (Рекомендуется)
+        clone Method (Recommended)
       
     </span>
   </a>
@@ -702,10 +732,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
+  <a href="#when-should-you-materialize" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Когда стоит делать материализацию?
+        When should you materialize?
       
     </span>
   </a>
@@ -713,10 +743,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
+  <a href="#write-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Параметры записи
+        Write Parameters
       
     </span>
   </a>
@@ -746,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Фильтрация и выборка
+    Filtering and Sampling
   
 
     
@@ -774,7 +804,7 @@
   <span class="md-ellipsis">
     
   
-    Операции с колонками
+    Column Operations
   
 
     
@@ -827,7 +857,7 @@
   <span class="md-ellipsis">
     
   
-    Справочник API
+    API Reference
   
 
     
@@ -843,7 +873,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Справочник API
+    API Reference
   
 
           </label>
@@ -863,7 +893,7 @@
   <span class="md-ellipsis">
     
   
-    Обзор
+    Overview
   
 
     
@@ -916,7 +946,7 @@
   <span class="md-ellipsis">
     
   
-    Описание
+    Explanation
   
 
     
@@ -932,7 +962,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Описание
+    Explanation
   
 
           </label>
@@ -952,7 +982,7 @@
   <span class="md-ellipsis">
     
   
-    Архитектура
+    Architecture
   
 
     
@@ -1000,22 +1030,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#to_parquet" class="md-nav__link">
+  <a href="#to_parquet-method" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Метод to_parquet
+        to_parquet Method
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Метод to_parquet">
+    <nav class="md-nav" aria-label="to_parquet Method">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#sharding" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Шардирование (Sharding)
+        Sharding
       
     </span>
   </a>
@@ -1028,10 +1058,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#clone" class="md-nav__link">
+  <a href="#clone-method-recommended" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Метод clone (Рекомендуется)
+        clone Method (Recommended)
       
     </span>
   </a>
@@ -1039,10 +1069,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
+  <a href="#when-should-you-materialize" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Когда стоит делать материализацию?
+        When should you materialize?
       
     </span>
   </a>
@@ -1050,10 +1080,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
+  <a href="#write-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Параметры записи
+        Write Parameters
       
     </span>
   </a>
@@ -1080,44 +1110,44 @@
   
 
 
-<h1 id="_1">Материализация и экспорт</h1>
-<p>Если вы используете сложные трансформации (через <code>.map()</code> или <code>.alias(lambda ...)</code>), каждое чтение строки будет запускать выполнение вашего Python-кода. На больших данных это может стать "бутылочным горлышком". </p>
-<p>Для решения этой проблемы библиотека предоставляет механизмы <strong>материализации</strong> — записи текущего состояния датасета в новый физический Parquet файл.</p>
-<h2 id="to_parquet">Метод <code>to_parquet</code></h2>
-<p>Метод <code>to_parquet</code> просто сохраняет текущее состояние датасета на диск.</p>
+<h1 id="materialization-and-export">Materialization and Export</h1>
+<p>If you use complex transformations (via <code>.map()</code> or <code>.alias(lambda ...)</code>), every row read will trigger the execution of your Python code. On large datasets, this can become a bottleneck.</p>
+<p>To solve this problem, the library provides <strong>materialization</strong> mechanisms — recording the current state of the dataset into a new physical Parquet file.</p>
+<h2 id="to_parquet-method"><code>to_parquet</code> Method</h2>
+<p>The <code>to_parquet</code> method simply saves the current state of the dataset to disk.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s2">&quot;processed_data.parquet&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="sharding">Шардирование (Sharding)</h3>
-<p>Если ваш датасет слишком велик для одного файла, вы можете разбить его на части (шарды):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Разобьет датасет на файлы по 50,000 строк в директории &#39;shards/&#39;</span>
+<h3 id="sharding">Sharding</h3>
+<p>If your dataset is too large for a single file, you can split it into parts (shards):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Splits the dataset into files with 50,000 rows each in the &#39;shards/&#39; directory</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s2">&quot;shards/&quot;</span><span class="p">,</span> <span class="n">shard_size</span><span class="o">=</span><span class="mi">50000</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="clone">Метод <code>clone</code> (Рекомендуется)</h2>
-<p>Метод <code>clone</code> делает то же самое, что и <code>to_parquet</code>, но возвращает <strong>новый экземпляр</strong> <code>IndexedParquetDataset</code>, который сразу смотрит на только что созданный файл.</p>
-<p>Это лучший способ "запечь" фильтры и трансформации и продолжить работу с максимальной скоростью (zero-overhead).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 1. Применяем медленные трансформации</span>
+<h2 id="clone-method-recommended"><code>clone</code> Method (Recommended)</h2>
+<p>The <code>clone</code> method does the same as <code>to_parquet</code>, but returns a <strong>new instance</strong> of <code>IndexedParquetDataset</code> that immediately points to the newly created file.</p>
+<p>This is the best way to "bake" filters and transformations and continue working with maximum speed (zero-overhead).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 1. Apply slow transformations</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">ds</span> <span class="o">=</span> <span class="p">(</span><span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;./raw&quot;</span><span class="p">)</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">heavy_logic</span><span class="p">)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">complex_transform</span><span class="p">))</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># 2. Клонируем в быстрый файл</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># 2. Clone to a fast file</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">fast_ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="s2">&quot;baked_data.parquet&quot;</span><span class="p">)</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># 3. Теперь fast_ds работает на порядки быстрее</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># 3. Now fast_ds works orders of magnitude faster</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">row</span> <span class="o">=</span> <span class="n">fast_ds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> 
 </span></code></pre></div>
-<h2 id="_2">Когда стоит делать материализацию?</h2>
+<h2 id="when-should-you-materialize">When should you materialize?</h2>
 <ol>
-<li><strong>Сложные Python-трансформации</strong>: Если в цепочке есть <code>.map()</code> или <code>.alias(callable)</code>.</li>
-<li><strong>Тяжелая фильтрация</strong>: Если вы отфильтровали 90% данных из огромного датасета. Прямой доступ к оставшимся 10% в исходных файлах будет все еще быстрым, но индекс в памяти будет содержать много "дырок", а файловые дескрипторы будут висеть для всех исходных файлов.</li>
-<li><strong>Подготовка для другого инструмента</strong>: Если вы хотите использовать очищенные данные в другом приложении (например, загрузить в Apache Spark).</li>
-<li><strong>Финальная версия</strong>: Перед запуском длительного обучения модели на кластере.</li>
+<li><strong>Complex Python Transformations</strong>: If there is a <code>.map()</code> or <code>.alias(callable)</code> in the chain.</li>
+<li><strong>Heavy Filtering</strong>: If you filtered out 90% of data from a huge dataset. Direct access to the remaining 10% in the original files will still be fast, but the in-memory index will contain many "holes", and file descriptors will be held for all original files.</li>
+<li><strong>Preparation for Another Tool</strong>: If you want to use cleaned data in another application (e.g., load into Apache Spark).</li>
+<li><strong>Final Version</strong>: Before starting long model training on a cluster.</li>
 </ol>
-<h2 id="_3">Параметры записи</h2>
-<p>Вы можете настроить размер чанка во время записи:</p>
+<h2 id="write-parameters">Write Parameters</h2>
+<p>You can adjust the chunk size during writing:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;output.parquet&quot;</span><span class="p">,</span> 
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">1024</span> <span class="c1"># Сколько строк накапливать в памяти перед сбросом в файл</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">1024</span> <span class="c1"># How many rows to accumulate in memory before flushing to the file</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
 </span></code></pre></div>
 

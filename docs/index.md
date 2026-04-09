@@ -1,47 +1,49 @@
 # Indexed Parquet Dataset
 
-[![PyPI version](https://badge.fury.io/py/indexed-parquet-dataset.svg)](https://badge.fury.io/py/indexed-parquet-dataset)
+[![PyPI version](https://img.shields.io/pypi/v/indexed-parquet-dataset.svg)](https://pypi.org/project/indexed-parquet-dataset/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Indexed Parquet Dataset** is a high-performance Python library designed for **O(1) random access** to large-scale Parquet datasets. 
+**Indexed Parquet Dataset** — это высокопроизводительная библиотека для быстрого случайного доступа к данным в формате Parquet. 
 
-It is specifically optimized for Deep Learning workflows, providing a seamless `Dataset` class for **PyTorch** while maintaining minimal memory overhead and supporting complex features like **Schema Evolution**.
+## Почему стоит использовать?
 
-## Key Features
+Стандартные библиотеки (pandas, pyarrow) работают отлично при чтении файла целиком, но они **не предназначены для эффективного случайного доступа по индексу строки**, особенно когда данные распределены по сотням Parquet файлов.
 
-- ⚡ **O(1) Random Access**: Instantly jump to any row in a multi-gigabyte dataset without scanning.
-- 🔄 **Schema Evolution**: Handle datasets where files have different schemas, missing columns, or renamed fields.
-- 📦 **Lazy Loading**: Only opens file handles and reads data when requested, with an efficient LRU handle cache.
-- 🔥 **PyTorch Integration**: Native `torch.utils.data.Dataset` support with batching and shuffling.
-- 🛠️ **Powerful API**: Built-in support for filtering, mapping, splitting, and sharding.
+`indexed-parquet-dataset` решает эту проблему, предлагая:
 
-## Installation
+1.  **Настоящий O(1) доступ**: Мы строим легкий индекс один раз и мгновенно переходим к нужной строке в любом файле.
+2.  **Экономию памяти**: Вы не загружаете датасет целиком. Открывается только нужный кусок файла в момент обращения.
+3.  **Гибкость схем**: Ваши файлы могут иметь разные колонки или их типы — библиотека нормализует всё "на лету".
 
-```bash
-pip install indexed-parquet-dataset
-```
+## Сравнение
 
-To include PyTorch support:
+| Фича | Pandas / PyArrow | HF Datasets | IterableDataset | **Indexed Parquet** |
+| :--- | :---: | :---: | :---: | :---: |
+| Случайный доступ | ❌ Медленно/RAM | ✅ Хорошо | ❌ Нет | ✅ **O(1) / RAM-lite** |
+| Чтение по сети | ✅ Да | ✅ Да | ✅ Да | ⚠️ Только через FUSE |
+| Schema Evolution | ❌ Сложно | ⚠️ Частично | ⚠️ Сложно | ✅ **Нативно** |
+| Lazy Loading | ❌ Нет | ✅ Да | ✅ Да | ✅ **Да (LRU кэш)** |
 
-```bash
-pip install "indexed-parquet-dataset[torch]"
-```
-
-## Quick Example
+## Быстрый пример
 
 ```python
 from indexed_parquet import IndexedParquetDataset
 
-# Scan a directory and index all parquet files
+# Создаем датасет из папки
 ds = IndexedParquetDataset.from_folder("path/to/data")
 
-# Access any row instantly
-row = ds[12345]  # Returns a dictionary
-print(row)
+# Обращаемся как к обычному списку
+row = ds[12345]  
+print(row) # {'column_a': 10.5, 'column_b': 'text', ...}
 
-# Integration with PyTorch
+# Прямая интеграция с PyTorch
 from torch.utils.data import DataLoader
 loader = DataLoader(ds, batch_size=32, shuffle=True)
 ```
 
-Check out the [Quick Start](tutorials/quickstart.md) guide to learn more!
+## Основные разделы
+
+- [Быстрый старт](tutorials/quickstart.md) — освойте основы за 5 минут.
+- [Эволюция схем](how-to/schema-evolution.md) — как работать с "грязными" данными.
+- [Deep Learning Pipeline](tutorials/deep_learning.md) — лучший способ обучать модели.
+- [Архитектура](explanation/architecture.md) — как это работает под капотом.

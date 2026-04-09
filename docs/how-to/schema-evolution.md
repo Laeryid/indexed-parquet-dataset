@@ -1,62 +1,76 @@
-# Handling Schema Evolution
+# Эволюция схем (Schema Evolution)
 
-One of the most powerful features of `indexed-parquet-dataset` is its ability to handle **Schema Evolution** across a collection of Parquet files. This is common when your data ingestion pipeline changes over time, adding new columns or renaming old ones.
+Одна из самых мощных возможностей `indexed-parquet-dataset` — это работа с наборами данных, структура которых менялась со временем. Это происходит, когда в процессе сбора данных добавляются новые признаки, удаляются старые или меняются названия колонок.
 
-## Missing Columns and Auto-fill
+## Проблема: Разные схемы в файлах
 
-By default, if a column exists in some files but not others, the dataset will return `None` (or a default fill value) for rows in files where the column is missing.
+Обычно при попытке объединить файлы с разными схемами библиотеки (вроде Pandas или PyArrow) выдают ошибку или требуют ручной нормализации. 
 
-### Using Auto-fill
+`IndexedParquetDataset` создает **виртуальную объединенную схему**, автоматически подставляя значения для отсутствующих колонок.
 
-You can enable automatic filling of missing values with reasonable defaults (0 for numbers, "" for strings, False for bools):
+## Работа с пропусками
+
+Когда колонка есть в одном файле, но отсутствует в другом, библиотека должна вернуть какое-то значение для строк "пустого" файла.
+
+### Автоматическое заполнение (auto_fill)
+
+Самый простой способ — включить `auto_fill`. Он заполнит пропуски разумными значениями (0 для чисел, пустая строка для текста, False для bool).
 
 ```python
 ds = IndexedParquetDataset.from_folder("data", auto_fill=True)
 ```
 
-### Manual Fill Values
+### Иерархия заполнения значений
 
-For more control, specify fill values via a hierarchy:
+Вы можете настроить заполнение очень точечно. Библиотека ищет значение в следующем порядке:
+
+1.  `fill_values_by_column`: Значение для конкретной колонки.
+2.  `fill_values_by_type`: Значение для определенного типа данных PyArrow.
+3.  `default_fill_value`: Глобальный запасной вариант (по умолчанию `None`).
 
 ```python
 ds = IndexedParquetDataset.from_folder(
     "data",
-    default_fill_value="N/A",  # Global fallback
-    fill_values_by_type={'int64': -1},  # Fallback for specific PyArrow types
-    fill_values_by_column={'priority': 1} # Specific column fallback
+    default_fill_value="N/A",  
+    fill_values_by_type={'int64': -1, 'double': 0.0},
+    fill_values_by_column={'priority': 1}
 )
 ```
 
-## Renaming Columns
+## Переименование и маппинг
 
-If a column was renamed in newer files (e.g., from `label` to `target`), you can normalize it globally:
+Если колонка сменила имя (например, с `label` на `target`), вы можете нормализовать её двумя способами:
+
+### Глобальное переименование (rename)
+
+Заставляет библиотеку считать, что `label` теперь называется `target` во всех файлах.
 
 ```python
-ds = IndexedParquetDataset.from_folder("data")
-# Normalize 'label' to be visible as 'target' everywhere
 ds = ds.rename("label", "target")
 ```
 
-## Custom Transformations
+### Маппинг для конкретного файла (set_file_mapping)
 
-You can add computed columns or transform existing ones on-the-fly:
-
-```python
-def normalize_image(row):
-    row['image'] = row['image'] / 255.0
-    return row
-
-ds = ds.map(normalize_image)
-```
-
-## Filtering by Schema or Metadata
-
-You can filter rows based on file paths or column existence:
+Если только в одном конкретном файле колонка называется странно, вы можете исправить это точечно:
 
 ```python
-# Only use data from certain files
-ds = ds.filter(path_filter="*/2023_data/*.parquet")
-
-# Only use rows where a specific column condition is met (server-side via PyArrow)
-ds = ds.filter(column_conditions={'status': 'completed'})
+ds = ds.set_file_mapping(
+    "data/v1/bad_file.parquet", 
+    {"old_name": "correct_name"}
+)
 ```
+
+## Объединение разных датасетов (merge)
+
+Если у вас есть два разных `IndexedParquetDataset`, вы можете объединить их в один. Библиотека автоматически:
+1. Вычислит общую схему.
+2. Выполнит **upcasting** типов (например, если в одном датасете колонка `id` это `int32`, а в другом `int64`, итоговая будет `int64`).
+3. Удалит дубликаты строк (те, что ссылаются на один и тот же файл и физический индекс строки).
+
+```python
+combined_ds = ds1.merge(ds2)
+```
+
+## Вложенные структуры (Structs)
+
+Библиотека умеет рекурсивно заходить внутрь колонок типа `Struct`. Если внутри структуры не хватает поля, оно будет заполнено согласно правилам выше. Это критически важно для PyTorch, который не умеет собирать батчи, содержащие `None` на любом уровне вложенности.

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/how-to/schema-evolution/">
+        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/how-to/materialization/">
       
       
-        <link rel="prev" href="../../tutorials/deep_learning/">
+        <link rel="prev" href="../schema-evolution/">
       
       
-        <link rel="next" href="../materialization/">
+        <link rel="next" href="../filtering/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Эволюция схем - Indexed Parquet Dataset</title>
+        <title>Материализация и экспорт - Indexed Parquet Dataset</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#schema-evolution" class="md-skip">
+        <a href="#_1" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Эволюция схем
+              Материализация и экспорт
             
           </span>
         </div>
@@ -270,7 +270,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../schema-evolution/" class="md-tabs__link">
           
   
   
@@ -572,6 +572,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema-evolution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Эволюция схем
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -591,7 +619,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Материализация и экспорт
   
 
     
@@ -609,7 +637,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Материализация и экспорт
   
 
     
@@ -635,10 +663,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
+  <a href="#to_parquet" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Проблема: Разные схемы в файлах
+        Метод to_parquet
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Метод to_parquet">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Шардирование (Sharding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Метод clone (Рекомендуется)
       
     </span>
   </a>
@@ -649,96 +705,18 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Работа с пропусками
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Работа с пропусками">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Автоматическое заполнение (auto_fill)
+        Когда стоит делать материализацию?
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Иерархия заполнения значений
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
+        Параметры записи
       
     </span>
   </a>
@@ -749,34 +727,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../materialization/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Материализация и экспорт
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1050,10 +1000,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
+  <a href="#to_parquet" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Проблема: Разные схемы в файлах
+        Метод to_parquet
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Метод to_parquet">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Шардирование (Sharding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Метод clone (Рекомендуется)
       
     </span>
   </a>
@@ -1064,96 +1042,18 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Работа с пропусками
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Работа с пропусками">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Автоматическое заполнение (auto_fill)
+        Когда стоит делать материализацию?
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Иерархия заполнения значений
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
+        Параметры записи
       
     </span>
   </a>
@@ -1180,53 +1080,46 @@
   
 
 
-<h1 id="schema-evolution">Эволюция схем (Schema Evolution)</h1>
-<p>Одна из самых мощных возможностей <code>indexed-parquet-dataset</code> — это работа с наборами данных, структура которых менялась со временем. Это происходит, когда в процессе сбора данных добавляются новые признаки, удаляются старые или меняются названия колонок.</p>
-<h2 id="_1">Проблема: Разные схемы в файлах</h2>
-<p>Обычно при попытке объединить файлы с разными схемами библиотеки (вроде Pandas или PyArrow) выдают ошибку или требуют ручной нормализации. </p>
-<p><code>IndexedParquetDataset</code> создает <strong>виртуальную объединенную схему</strong>, автоматически подставляя значения для отсутствующих колонок.</p>
-<h2 id="_2">Работа с пропусками</h2>
-<p>Когда колонка есть в одном файле, но отсутствует в другом, библиотека должна вернуть какое-то значение для строк "пустого" файла.</p>
-<h3 id="auto_fill">Автоматическое заполнение (auto_fill)</h3>
-<p>Самый простой способ — включить <code>auto_fill</code>. Он заполнит пропуски разумными значениями (0 для чисел, пустая строка для текста, False для bool).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">auto_fill</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<h1 id="_1">Материализация и экспорт</h1>
+<p>Если вы используете сложные трансформации (через <code>.map()</code> или <code>.alias(lambda ...)</code>), каждое чтение строки будет запускать выполнение вашего Python-кода. На больших данных это может стать "бутылочным горлышком". </p>
+<p>Для решения этой проблемы библиотека предоставляет механизмы <strong>материализации</strong> — записи текущего состояния датасета в новый физический Parquet файл.</p>
+<h2 id="to_parquet">Метод <code>to_parquet</code></h2>
+<p>Метод <code>to_parquet</code> просто сохраняет текущее состояние датасета на диск.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s2">&quot;processed_data.parquet&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="_3">Иерархия заполнения значений</h3>
-<p>Вы можете настроить заполнение очень точечно. Библиотека ищет значение в следующем порядке:</p>
+<h3 id="sharding">Шардирование (Sharding)</h3>
+<p>Если ваш датасет слишком велик для одного файла, вы можете разбить его на части (шарды):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Разобьет датасет на файлы по 50,000 строк в директории &#39;shards/&#39;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="s2">&quot;shards/&quot;</span><span class="p">,</span> <span class="n">shard_size</span><span class="o">=</span><span class="mi">50000</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="clone">Метод <code>clone</code> (Рекомендуется)</h2>
+<p>Метод <code>clone</code> делает то же самое, что и <code>to_parquet</code>, но возвращает <strong>новый экземпляр</strong> <code>IndexedParquetDataset</code>, который сразу смотрит на только что созданный файл.</p>
+<p>Это лучший способ "запечь" фильтры и трансформации и продолжить работу с максимальной скоростью (zero-overhead).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># 1. Применяем медленные трансформации</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">ds</span> <span class="o">=</span> <span class="p">(</span><span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;./raw&quot;</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">heavy_logic</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">complex_transform</span><span class="p">))</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># 2. Клонируем в быстрый файл</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">fast_ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="s2">&quot;baked_data.parquet&quot;</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># 3. Теперь fast_ds работает на порядки быстрее</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">row</span> <span class="o">=</span> <span class="n">fast_ds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> 
+</span></code></pre></div>
+<h2 id="_2">Когда стоит делать материализацию?</h2>
 <ol>
-<li><code>fill_values_by_column</code>: Значение для конкретной колонки.</li>
-<li><code>fill_values_by_type</code>: Значение для определенного типа данных PyArrow.</li>
-<li><code>default_fill_value</code>: Глобальный запасной вариант (по умолчанию <code>None</code>).</li>
+<li><strong>Сложные Python-трансформации</strong>: Если в цепочке есть <code>.map()</code> или <code>.alias(callable)</code>.</li>
+<li><strong>Тяжелая фильтрация</strong>: Если вы отфильтровали 90% данных из огромного датасета. Прямой доступ к оставшимся 10% в исходных файлах будет все еще быстрым, но индекс в памяти будет содержать много "дырок", а файловые дескрипторы будут висеть для всех исходных файлов.</li>
+<li><strong>Подготовка для другого инструмента</strong>: Если вы хотите использовать очищенные данные в другом приложении (например, загрузить в Apache Spark).</li>
+<li><strong>Финальная версия</strong>: Перед запуском длительного обучения модели на кластере.</li>
 </ol>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_fill_value</span><span class="o">=</span><span class="s2">&quot;N/A&quot;</span><span class="p">,</span>  
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">fill_values_by_type</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;int64&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;double&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">fill_values_by_column</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;priority&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="_4">Переименование и маппинг</h2>
-<p>Если колонка сменила имя (например, с <code>label</code> на <code>target</code>), вы можете нормализовать её двумя способами:</p>
-<h3 id="rename">Глобальное переименование (rename)</h3>
-<p>Заставляет библиотеку считать, что <code>label</code> теперь называется <code>target</code> во всех файлах.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="set_file_mapping">Маппинг для конкретного файла (set_file_mapping)</h3>
-<p>Если только в одном конкретном файле колонка называется странно, вы можете исправить это точечно:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">set_file_mapping</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;data/v1/bad_file.parquet&quot;</span><span class="p">,</span> 
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="p">{</span><span class="s2">&quot;old_name&quot;</span><span class="p">:</span> <span class="s2">&quot;correct_name&quot;</span><span class="p">}</span>
+<h2 id="_3">Параметры записи</h2>
+<p>Вы можете настроить размер чанка во время записи:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">dataset</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;output.parquet&quot;</span><span class="p">,</span> 
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">1024</span> <span class="c1"># Сколько строк накапливать в памяти перед сбросом в файл</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="merge">Объединение разных датасетов (merge)</h2>
-<p>Если у вас есть два разных <code>IndexedParquetDataset</code>, вы можете объединить их в один. Библиотека автоматически:
-1. Вычислит общую схему.
-2. Выполнит <strong>upcasting</strong> типов (например, если в одном датасете колонка <code>id</code> это <code>int32</code>, а в другом <code>int64</code>, итоговая будет <code>int64</code>).
-3. Удалит дубликаты строк (те, что ссылаются на один и тот же файл и физический индекс строки).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">combined_ds</span> <span class="o">=</span> <span class="n">ds1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">ds2</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="structs">Вложенные структуры (Structs)</h2>
-<p>Библиотека умеет рекурсивно заходить внутрь колонок типа <code>Struct</code>. Если внутри структуры не хватает поля, оно будет заполнено согласно правилам выше. Это критически важно для PyTorch, который не умеет собирать батчи, содержащие <code>None</code> на любом уровне вложенности.</p>
 
 
 

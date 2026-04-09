@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/how-to/schema-evolution/">
+        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/tutorials/deep_learning/">
       
       
-        <link rel="prev" href="../../tutorials/deep_learning/">
+        <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="../materialization/">
+        <link rel="next" href="../../how-to/schema-evolution/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Эволюция схем - Indexed Parquet Dataset</title>
+        <title>Deep Learning Pipeline - Indexed Parquet Dataset</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#schema-evolution" class="md-skip">
+        <a href="#deep-learning-pipeline" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Эволюция схем
+              Deep Learning Pipeline
             
           </span>
         </div>
@@ -244,11 +244,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../tutorials/quickstart/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../quickstart/" class="md-tabs__link">
           
   
   
@@ -264,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../how-to/schema-evolution/" class="md-tabs__link">
           
   
   
@@ -398,28 +398,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
             
   
   
@@ -437,7 +440,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -455,7 +458,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/quickstart/" class="md-nav__link">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   
@@ -480,98 +483,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorials/deep_learning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deep Learning Pipeline
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Руководства
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Руководства
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
     
   
   
@@ -591,7 +502,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Deep Learning Pipeline
   
 
     
@@ -609,7 +520,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Deep Learning Pipeline
   
 
     
@@ -638,7 +549,7 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Проблема: Разные схемы в файлах
+        Почему это лучше стандартных подходов?
       
     </span>
   </a>
@@ -649,96 +560,40 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Работа с пропусками
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Работа с пропусками">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Автоматическое заполнение (auto_fill)
+        Пример пайплайна
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#deep-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Работа с пропусками в Deep Learning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#num_workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Параллельное чтение (num_workers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Иерархия заполнения значений
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
+        Совет по производительности
       
     </span>
   </a>
@@ -754,6 +609,67 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Руководства
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Руководства
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -761,7 +677,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../materialization/" class="md-nav__link">
+      <a href="../../how-to/schema-evolution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Эволюция схем
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/materialization/" class="md-nav__link">
         
   
   
@@ -789,7 +733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../filtering/" class="md-nav__link">
+      <a href="../../how-to/filtering/" class="md-nav__link">
         
   
   
@@ -817,7 +761,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../column-ops/" class="md-nav__link">
+      <a href="../../how-to/column-ops/" class="md-nav__link">
         
   
   
@@ -1053,7 +997,7 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Проблема: Разные схемы в файлах
+        Почему это лучше стандартных подходов?
       
     </span>
   </a>
@@ -1064,96 +1008,40 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Работа с пропусками
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Работа с пропусками">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Автоматическое заполнение (auto_fill)
+        Пример пайплайна
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#deep-learning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Работа с пропусками в Deep Learning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#num_workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Параллельное чтение (num_workers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Иерархия заполнения значений
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
+        Совет по производительности
       
     </span>
   </a>
@@ -1180,53 +1068,83 @@
   
 
 
-<h1 id="schema-evolution">Эволюция схем (Schema Evolution)</h1>
-<p>Одна из самых мощных возможностей <code>indexed-parquet-dataset</code> — это работа с наборами данных, структура которых менялась со временем. Это происходит, когда в процессе сбора данных добавляются новые признаки, удаляются старые или меняются названия колонок.</p>
-<h2 id="_1">Проблема: Разные схемы в файлах</h2>
-<p>Обычно при попытке объединить файлы с разными схемами библиотеки (вроде Pandas или PyArrow) выдают ошибку или требуют ручной нормализации. </p>
-<p><code>IndexedParquetDataset</code> создает <strong>виртуальную объединенную схему</strong>, автоматически подставляя значения для отсутствующих колонок.</p>
-<h2 id="_2">Работа с пропусками</h2>
-<p>Когда колонка есть в одном файле, но отсутствует в другом, библиотека должна вернуть какое-то значение для строк "пустого" файла.</p>
-<h3 id="auto_fill">Автоматическое заполнение (auto_fill)</h3>
-<p>Самый простой способ — включить <code>auto_fill</code>. Он заполнит пропуски разумными значениями (0 для чисел, пустая строка для текста, False для bool).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">auto_fill</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="_3">Иерархия заполнения значений</h3>
-<p>Вы можете настроить заполнение очень точечно. Библиотека ищет значение в следующем порядке:</p>
+<h1 id="deep-learning-pipeline">Deep Learning Pipeline</h1>
+<p>Этот туториал показывает, как построить надежный и быстрый конвейер обучения нейронной сети, используя <code>IndexedParquetDataset</code> и PyTorch.</p>
+<h2 id="_1">Почему это лучше стандартных подходов?</h2>
 <ol>
-<li><code>fill_values_by_column</code>: Значение для конкретной колонки.</li>
-<li><code>fill_values_by_type</code>: Значение для определенного типа данных PyArrow.</li>
-<li><code>default_fill_value</code>: Глобальный запасной вариант (по умолчанию <code>None</code>).</li>
+<li><strong>RAM-efficiency</strong>: Даже если ваш датасет занимает 1 ТБ, вы потребляете всего несколько сотен МБ оперативной памяти.</li>
+<li><strong>No Lag</strong>: Случайный доступ O(1) гарантирует, что <code>DataLoader</code> не будет ждать, пока распарсится весь файл, чтобы достать одну строку.</li>
+<li><strong>Гибкость</strong>: Вы можете фильтровать и дополнять данные на лету, не пересоздавая тяжелые файлы.</li>
 </ol>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_fill_value</span><span class="o">=</span><span class="s2">&quot;N/A&quot;</span><span class="p">,</span>  
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">fill_values_by_type</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;int64&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;double&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">fill_values_by_column</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;priority&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+<h2 id="_2">Пример пайплайна</h2>
+<p>Ниже приведен полный пример: от инициализации до цикла обучения.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">indexed_parquet</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexedParquetDataset</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># 1. Инициализация с автоматической обработкой пропусков</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># auto_fill=True заполнит None значениями по умолчанию (0 для чисел, &quot;&quot; для строк)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">auto_fill</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># 2. Подготовка данных (Fluent API)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">dataset</span> <span class="o">=</span> <span class="p">(</span><span class="n">ds</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="c1"># Убираем строки без меток</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;image_tensor&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;pixels&quot;</span><span class="p">]))</span> <span class="c1"># Конвертируем в тензор</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;int&quot;</span><span class="p">)</span> <span class="c1"># Убеждаемся, что метка — целое число</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">)</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># 3. Разделение на train/val</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">train_ds</span><span class="p">,</span> <span class="n">val_ds</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span><span class="n">test_size</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># 4. Настройка DataLoader</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># generate_collate_fn гарантирует, что в батч не попадут None, </span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># даже если они закрались в данные.</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">train_ds</span><span class="p">,</span> 
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> 
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">num_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">collate_fn</span><span class="o">=</span><span class="n">train_ds</span><span class="o">.</span><span class="n">generate_collate_fn</span><span class="p">(</span><span class="n">on_none</span><span class="o">=</span><span class="s1">&#39;fill&#39;</span><span class="p">)</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="p">)</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="c1"># 5. Цикл обучения</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>        <span class="c1"># Данные уже в виде тензоров благодаря alias и collate_fn</span>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>        <span class="n">images</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;image_tensor&quot;</span><span class="p">]</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>        <span class="n">labels</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>        <span class="n">output</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>        <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2"> completed&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="_4">Переименование и маппинг</h2>
-<p>Если колонка сменила имя (например, с <code>label</code> на <code>target</code>), вы можете нормализовать её двумя способами:</p>
-<h3 id="rename">Глобальное переименование (rename)</h3>
-<p>Заставляет библиотеку считать, что <code>label</code> теперь называется <code>target</code> во всех файлах.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">)</span>
+<h2 id="deep-learning">Работа с пропусками в Deep Learning</h2>
+<p>Одной из главных проблем при использовании <code>DataLoader</code> с данными из файлов является наличие <code>None</code>. Если стандартный <code>default_collate</code> встречает <code>None</code>, он падает с ошибкой.</p>
+<p><code>IndexedParquetDataset</code> предлагает три стратегии решения в <code>generate_collate_fn(on_none=...)</code>:</p>
+<ul>
+<li><code>'raise'</code> (по умолчанию): Бросить ошибку с указанием колонки, где найден <code>None</code>.</li>
+<li><code>'fill'</code>: Заменить <code>None</code> на значение из конфигурации датасета (см. <a href="../../how-to/schema-evolution/">Эволюцию схем</a>).</li>
+<li><code>'drop'</code>: Просто выкинуть эту строку из батча (батч будет чуть меньше <code>batch_size</code>).</li>
+</ul>
+<h2 id="num_workers">Параллельное чтение (num_workers)</h2>
+<p>Благодаря тому, что <code>IndexedParquetDataset</code> корректно реализует методы <code>__getstate__</code> и <code>__setstate__</code>, он полностью совместим с многопроцессорным чтением в PyTorch (<code>num_workers &gt; 0</code>). </p>
+<p>Каждый воркер открывает свои собственные дескрипторы файлов, не конфликтуя с остальными.</p>
+<h2 id="_3">Совет по производительности</h2>
+<p>Если вы используете очень сложные трансформации в <code>.alias(lambda ...)</code> или тяжелую фильтрацию, это может замедлить чтение. В таком случае рекомендуется один раз "материализовать" датасет:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Все вычисления будут выполнены один раз и сохранены в новый файл</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">fast_ds</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="s2">&quot;processed_data.parquet&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="set_file_mapping">Маппинг для конкретного файла (set_file_mapping)</h3>
-<p>Если только в одном конкретном файле колонка называется странно, вы можете исправить это точечно:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">set_file_mapping</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;data/v1/bad_file.parquet&quot;</span><span class="p">,</span> 
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="p">{</span><span class="s2">&quot;old_name&quot;</span><span class="p">:</span> <span class="s2">&quot;correct_name&quot;</span><span class="p">}</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="merge">Объединение разных датасетов (merge)</h2>
-<p>Если у вас есть два разных <code>IndexedParquetDataset</code>, вы можете объединить их в один. Библиотека автоматически:
-1. Вычислит общую схему.
-2. Выполнит <strong>upcasting</strong> типов (например, если в одном датасете колонка <code>id</code> это <code>int32</code>, а в другом <code>int64</code>, итоговая будет <code>int64</code>).
-3. Удалит дубликаты строк (те, что ссылаются на один и тот же файл и физический индекс строки).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">combined_ds</span> <span class="o">=</span> <span class="n">ds1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">ds2</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="structs">Вложенные структуры (Structs)</h2>
-<p>Библиотека умеет рекурсивно заходить внутрь колонок типа <code>Struct</code>. Если внутри структуры не хватает поля, оно будет заполнено согласно правилам выше. Это критически важно для PyTorch, который не умеет собирать батчи, содержащие <code>None</code> на любом уровне вложенности.</p>
+<p>Подробнее об этом в разделе <a href="../../how-to/materialization/">Материализация</a>.</p>
 
 
 

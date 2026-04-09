@@ -1,10 +1,10 @@
-# Справочник API
+# API Reference
 
-В этом разделе приведена подробная документация по основным классам и методам библиотеки `indexed-parquet-dataset`.
+This section provides detailed documentation for the main classes and methods of the `indexed-parquet-dataset` library.
 
 ## IndexedParquetDataset
 
-Основной класс для индексации и доступа к данным. Наследуется от `torch.utils.data.Dataset` (если установлен PyTorch).
+The main class for indexing and data access. Inherits from `torch.utils.data.Dataset` (if PyTorch is installed).
 
 ::: indexed_parquet.dataset.IndexedParquetDataset
     options:
@@ -35,18 +35,18 @@
 
 ## CollateHandler
 
-Вспомогательный класс для корректного сбора батчей в `DataLoader`. Используйте его через метод `ds.generate_collate_fn()`.
+A helper class for correct batch collection in `DataLoader`. Use it via the `ds.generate_collate_fn()` method.
 
 ::: indexed_parquet.dataset.CollateHandler
 
 ## SchemaMapper
 
-Внутренний класс, отвечающий за трансформации схем и вычисляемые колонки.
+The internal class responsible for schema transformations and calculated columns.
 
 ::: indexed_parquet.schema.SchemaMapper
 
 ## BaseIndex
 
-Класс, хранящий метаданные индекса (оффсеты файлов, количество строк).
+The class that stores index metadata (file offsets, row counts).
 
 ::: indexed_parquet.indexer.BaseIndex

@@ -6,6 +6,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  language: en
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -32,6 +33,27 @@ theme:
 
 plugins:
   - search
+  - i18n:
+      languages:
+        - locale: en
+          name: English
+          default: true
+        - locale: ru
+          name: Русский
+          nav_translations:
+            Home: Главная
+            Tutorials: Обучение
+            Quickstart: Быстрый старт
+            Deep Learning Pipeline: Deep Learning Pipeline
+            How-to Guides: Руководства
+            Schema Evolution: Эволюция схем
+            Materialization: Материализация
+            Filtering and Sampling: Фильтрация и выборка
+            Column Operations: Операции с колонками
+            API Reference: Справочник API
+            Overview: Обзор
+            Explanation: Описание
+            Architecture: Архитектура
   - mkdocstrings:
       handlers:
         python:
@@ -43,19 +65,19 @@ plugins:
 
 
 nav:
-  - Главная: index.md
-  - Обучение:
-    - Быстрый старт: tutorials/quickstart.md
+  - Home: index.md
+  - Tutorials:
+    - Quickstart: tutorials/quickstart.md
     - Deep Learning Pipeline: tutorials/deep_learning.md
-  - Руководства:
-    - Эволюция схем: how-to/schema-evolution.md
-    - Материализация и экспорт: how-to/materialization.md
-    - Фильтрация и выборка: how-to/filtering.md
-    - Операции с колонками: how-to/column-ops.md
-  - Справочник API:
-    - Обзор: reference/api.md
-  - Описание:
-    - Архитектура: explanation/architecture.md
+  - How-to Guides:
+    - Schema Evolution: how-to/schema-evolution.md
+    - Materialization: how-to/materialization.md
+    - Filtering and Sampling: how-to/filtering.md
+    - Column Operations: how-to/column-ops.md
+  - API Reference:
+    - Overview: reference/api.md
+  - Explanation:
+    - Architecture: explanation/architecture.md
 
 markdown_extensions:
   - admonition

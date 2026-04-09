@@ -3,47 +3,47 @@
 [![PyPI version](https://img.shields.io/pypi/v/indexed-parquet-dataset.svg)](https://pypi.org/project/indexed-parquet-dataset/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Indexed Parquet Dataset** — это высокопроизводительная библиотека для быстрого случайного доступа к данным в формате Parquet. 
+**Indexed Parquet Dataset** is a high-performance library for fast random access to Parquet data.
 
-## Почему стоит использовать?
+## Why Use It?
 
-Стандартные библиотеки (pandas, pyarrow) работают отлично при чтении файла целиком, но они **не предназначены для эффективного случайного доступа по индексу строки**, особенно когда данные распределены по сотням Parquet файлов.
+Standard libraries (pandas, pyarrow) work great for reading an entire file, but they are **not designed for efficient random access by row index**, especially when data is distributed across hundreds of Parquet files.
 
-`indexed-parquet-dataset` решает эту проблему, предлагая:
+`indexed-parquet-dataset` solves this problem by offering:
 
-1.  **Настоящий O(1) доступ**: Мы строим легкий индекс один раз и мгновенно переходим к нужной строке в любом файле.
-2.  **Экономию памяти**: Вы не загружаете датасет целиком. Открывается только нужный кусок файла в момент обращения.
-3.  **Гибкость схем**: Ваши файлы могут иметь разные колонки или их типы — библиотека нормализует всё "на лету".
+1.  **True O(1) access**: We build a lightweight index once and instantly navigate to the desired row in any file.
+2.  **Memory efficiency**: You don't load the entire dataset. Only the required file chunk is opened at the moment of access.
+3.  **Schema flexibility**: Your files can have different columns or types — the library normalizes everything "on the fly".
 
-## Сравнение
+## Comparison
 
-| Фича | Pandas / PyArrow | HF Datasets | IterableDataset | **Indexed Parquet** |
+| Feature | Pandas / PyArrow | HF Datasets | IterableDataset | **Indexed Parquet** |
 | :--- | :---: | :---: | :---: | :---: |
-| Случайный доступ | ❌ Медленно/RAM | ✅ Хорошо | ❌ Нет | ✅ **O(1) / RAM-lite** |
-| Чтение по сети | ✅ Да | ✅ Да | ✅ Да | ⚠️ Только через FUSE |
-| Schema Evolution | ❌ Сложно | ⚠️ Частично | ⚠️ Сложно | ✅ **Нативно** |
-| Lazy Loading | ❌ Нет | ✅ Да | ✅ Да | ✅ **Да (LRU кэш)** |
+| Random Access | ❌ Slow/RAM | ✅ Good | ❌ No | ✅ **O(1) / RAM-lite** |
+| Cloud/Network Read | ✅ Yes | ✅ Yes | ✅ Yes | ⚠️ Via FUSE only |
+| Schema Evolution | ❌ Hard | ⚠️ Partial | ⚠️ Hard | ✅ **Native** |
+| Lazy Loading | ❌ No | ✅ Yes | ✅ Yes | ✅ **Yes (LRU cache)** |
 
-## Быстрый пример
+## Quick Example
 
 ```python
 from indexed_parquet import IndexedParquetDataset
 
-# Создаем датасет из папки
+# Create dataset from folder
 ds = IndexedParquetDataset.from_folder("path/to/data")
 
-# Обращаемся как к обычному списку
+# Access like a regular list
 row = ds[12345]  
 print(row) # {'column_a': 10.5, 'column_b': 'text', ...}
 
-# Прямая интеграция с PyTorch
+# Direct PyTorch integration
 from torch.utils.data import DataLoader
 loader = DataLoader(ds, batch_size=32, shuffle=True)
 ```
 
-## Основные разделы
+## Sections
 
-- [Быстрый старт](tutorials/quickstart.md) — освойте основы за 5 минут.
-- [Эволюция схем](how-to/schema-evolution.md) — как работать с "грязными" данными.
-- [Deep Learning Pipeline](tutorials/deep_learning.md) — лучший способ обучать модели.
-- [Архитектура](explanation/architecture.md) — как это работает под капотом.
+- [Quickstart](tutorials/quickstart.md) — learn the basics in 5 minutes.
+- [Schema Evolution](how-to/schema-evolution.md) — how to work with "dirty" data.
+- [Deep Learning Pipeline](tutorials/deep_learning.md) — best way to train models.
+- [Architecture](explanation/architecture.md) — how it works under the hood.

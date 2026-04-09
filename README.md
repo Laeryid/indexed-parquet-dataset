@@ -11,31 +11,31 @@
 
 # Indexed Parquet Dataset
 
-**Indexed Parquet Dataset** — это высокопроизводительная библиотека на Python для **O(1) случайного доступа** к огромным наборам данных в формате Parquet. 
+**Indexed Parquet Dataset** is a high-performance Python library for **O(1) random access** to massive datasets in Parquet format.
 
-Она специально оптимизирована для Deep Learning (PyTorch), потребляет минимум памяти и поддерживает сложные функции, такие как **Schema Evolution** (работа с файлами разных схем в одном датасете).
+It is specifically optimized for Deep Learning (PyTorch), consumes minimal memory, and supports advanced features such as **Schema Evolution** (working with files of different schemas in a single dataset).
 
-## Основные фишки
+## Key Features
 
-- ⚡ **O(1) Random Access**: Мгновенный переход к любой строке в многогигабайтном датасете без сканирования файлов.
-- 🔄 **Schema Evolution**: Работа с наборами данных, где файлы имеют разные схемы, отсутствующие колонки или переименованные поля.
-- 📦 **Lazy Loading**: Файлы открываются только при запросе данных. Эффективный LRU-кэш дескрипторов.
-- 🔥 **PyTorch Integration**: Нативная поддержка `torch.utils.data.Dataset`, включая генерацию адаптивного `collate_fn`.
-- 🛠️ **Fluent API**: Цепочки вызовов: `shuffle`, `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
-- 💾 **Index Persistence**: Сохранение и быстрая загрузка индекса из файла.
-- 🏗️ **Materialization**: "Запекание" всех трансформаций в новые Parquet файлы через `clone()`.
+- ⚡ **O(1) Random Access**: Instantly navigate to any row in a multi-gigabyte dataset without scanning files.
+- 🔄 **Schema Evolution**: Work with datasets where files have different schemas, missing columns, or renamed fields.
+- 📦 **Lazy Loading**: Files are opened only when data is requested. Features an efficient LRU handle cache.
+- 🔥 **PyTorch Integration**: Native support for `torch.utils.data.Dataset`, including adaptive `collate_fn` generation.
+- 🛠️ **Fluent API**: Method chaining: `shuffle`, `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
+- 💾 **Index Persistence**: Save and fast-load the index from a file.
+- 🏗️ **Materialization**: "Bake" all transformations into new Parquet files via `clone()`.
 
-## Архитектура
+## Architecture
 
-Библиотека остается легковесной, храня в оперативной памяти только метаданные и карту строк:
+The library remains lightweight, storing only metadata and a row map in RAM:
 
 ```mermaid
 graph TD
-    subgraph RAM ["Приложение (RAM - Легковесно)"]
+    subgraph RAM ["Application (RAM - Lightweight)"]
         direction TB
         subgraph DS ["IndexedParquetDataset"]
-            Indices["Indices Array [np.ndarray]<br/>(Перемешанные/Отфильтрованные индексы)"]
-            Meta["Metadata & Schema<br/>(Оффсеты файлов, маппинг колонок)"]
+            Indices["Indices Array [np.ndarray]<br/>(Shuffled/Filtered indices)"]
+            Meta["Metadata & Schema<br/>(File offsets, column mapping)"]
             Cache["File Handle Cache<br/>(Lazy Loading LRU)"]
         end
         
@@ -44,7 +44,7 @@ graph TD
         Meta -- "Find File & Row Offset" --> Cache
     end
     
-    subgraph Storage ["Хранилище (HDD/SSD/S3-over-FUSE)"]
+    subgraph Storage ["Storage (HDD/SSD/S3-over-FUSE)"]
         F1["data_part_1.parquet"]
         F2["data_part_2.parquet"]
         FN["data_part_N.parquet"]
@@ -59,36 +59,36 @@ graph TD
     FN -. "O(1) Row Retrieval" .-> User
 ```
 
-## Установка
+## Installation
 
-Из PyPI:
+From PyPI:
 ```bash
 pip install indexed-parquet-dataset
 ```
 
-Для поддержки PyTorch:
+For PyTorch support:
 ```bash
 pip install "indexed-parquet-dataset[torch]"
 ```
 
-## Быстрый старт
+## Quickstart
 
-### Базовая инициализация
+### Basic Initialization
 
 ```python
 from indexed_parquet import IndexedParquetDataset
 
-# Сканирует папку и строит глобальный индекс строк
+# Scans the folder and builds a global row index
 ds = IndexedParquetDataset.from_folder("./path/to/data")
 
-print(f"Всего строк: {len(ds)}")
-print(f"Первая строка: {ds[0]}") # {'id': 1, 'text': '...', ...}
+print(f"Total rows: {len(ds)}")
+print(f"First row: {ds[0]}") # {'id': 1, 'text': '...', ...}
 
-# Случайный доступ к любой строке мгновенный
+# Random access to any row is instant
 sample = ds[999_999]
 ```
 
-### Трансформации (Fluent API)
+### Transformations (Fluent API)
 
 ```python
 ds = (IndexedParquetDataset.from_folder("./data")
@@ -97,11 +97,11 @@ ds = (IndexedParquetDataset.from_folder("./data")
       .alias("text_len", lambda x: len(x["text"]))
       .limit(10000))
 
-# Теперь у каждой строки есть виртуальная колонка 'text_len'
+# Each row now has a virtual 'text_len' column
 print(ds[0]["text_len"])
 ```
 
-### Использование с PyTorch
+### Usage with PyTorch
 
 ```python
 from torch.utils.data import DataLoader
@@ -118,10 +118,10 @@ loader = DataLoader(
 )
 ```
 
-## Документация
+## Documentation
 
-Полная документация доступна на [GitHub Pages](https://laeryid.github.io/indexed-parquet-dataset/).
+Full documentation is available on [GitHub Pages](https://laeryid.github.io/indexed-parquet-dataset/).
 
-## Лицензия
+## License
 
 [Apache 2.0 License](LICENSE)

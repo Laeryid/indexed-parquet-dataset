@@ -27,10 +27,12 @@ class BaseIndex:
         files: List of FileInfo objects for all files in the dataset.
         total_rows: Combined number of rows across all files.
         all_columns: Sorted list of all unique columns found across all files.
+        column_types: Dict mapping column names to their PyArrow type as a string.
     """
     files: List[FileInfo]
     total_rows: int
     all_columns: List[str]
+    column_types: Dict[str, str]
 
 def scan_directory(
     directory: str, 
@@ -50,28 +52,40 @@ def scan_directory(
         A BaseIndex object containing dataset metadata.
         
     Raises:
+        FileNotFoundError: If no files matching the pattern are found.
         ValueError: If strict_schema is True and a file schema doesn't match the first file.
     """
     search_path = os.path.join(directory, "**", pattern) if recursive else os.path.join(directory, pattern)
     file_paths = glob.glob(search_path, recursive=recursive)
     
+    if not file_paths:
+        raise FileNotFoundError(f"No files matching pattern '{pattern}' found in '{directory}'")
+
     files_info: List[FileInfo] = []
     total_rows: int = 0
     all_columns_set: Set[str] = set()
+    column_types: Dict[str, str] = {}
     first_schema: Optional[Set[str]] = None
     
     for path in sorted(file_paths):
         metadata = pq.read_metadata(path)
         num_rows = metadata.num_rows
         row_groups = [metadata.row_group(i).num_rows for i in range(metadata.num_row_groups)]
-        file_columns = metadata.schema.names
+        
+        # Access PyArrow schema to get clean type names
+        pa_schema = metadata.schema.to_arrow_schema()
+        file_columns = pa_schema.names
         
         if first_schema is None:
             first_schema = set(file_columns)
         elif strict_schema and set(file_columns) != first_schema:
             raise ValueError(f"Schema mismatch in file {path} while strict_schema=True")
             
-        all_columns_set.update(file_columns)
+        for i, col in enumerate(file_columns):
+            all_columns_set.add(col)
+            # Store type name if not already seen
+            if col not in column_types:
+                column_types[col] = str(pa_schema.field(i).type)
             
         files_info.append(FileInfo(
             path=os.path.abspath(path),
@@ -84,5 +98,6 @@ def scan_directory(
     return BaseIndex(
         files=files_info,
         total_rows=total_rows,
-        all_columns=sorted(list(all_columns_set))
+        all_columns=sorted(list(all_columns_set)),
+        column_types=column_types
     )

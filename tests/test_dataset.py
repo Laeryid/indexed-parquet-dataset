@@ -72,9 +72,9 @@ def test_limit(test_data_dir):
     assert len(limited) == 5
     assert limited[4]["id"] == 4
 
-def test_map(test_data_dir):
+def test_alias(test_data_dir):
     dataset = IndexedParquetDataset.from_folder(test_data_dir)
-    mapped = dataset.map(lambda x: {**x, "val_len": len(x["val"])})
+    mapped = dataset.alias("val_len", lambda x: len(x["val"]))
     assert "val_len" in mapped[0]
     assert mapped[0]["val_len"] == 3 # "a_0"
 

@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 import json
 
 class SchemaMapper:
@@ -7,16 +7,19 @@ class SchemaMapper:
     def __init__(
         self, 
         mapping: Optional[Dict[str, str]] = None, 
-        file_mappings: Optional[Dict[str, Dict[str, str]]] = None
+        file_mappings: Optional[Dict[str, Dict[str, str]]] = None,
+        transforms: Optional[Dict[str, Callable]] = None
     ):
         """Initializes the SchemaMapper.
         
         Args:
             mapping: Global mapping (original name -> target name).
             file_mappings: File-specific mappings (file path -> {original -> target}).
+            transforms: Global transformations (target name -> function(row)).
         """
         self.mapping = mapping if mapping is not None else {}
         self.file_mappings = file_mappings if file_mappings is not None else {}
+        self.transforms = transforms if transforms is not None else {}
         self._rebuild_reverse_mapping()
 
     def _rebuild_reverse_mapping(self) -> None:
@@ -40,13 +43,25 @@ class SchemaMapper:
             current_data = {f_map.get(k, k): v for k, v in current_data.items()}
             
         if not self.mapping:
-            return current_data
+            mapped_data = current_data.copy()
+        else:
+            mapped_data = {}
+            for col, val in current_data.items():
+                target_name = self.mapping.get(col, col)
+                mapped_data[target_name] = val
             
-        mapped_data = {}
-        for col, val in current_data.items():
-            target_name = self.mapping.get(col, col)
-            mapped_data[target_name] = val
+        # Apply transforms (computed columns)
+        if not self.transforms:
+            return mapped_data
             
+        for target_name, transform in self.transforms.items():
+            try:
+                mapped_data[target_name] = transform(mapped_data)
+            except Exception as e:
+                pass
+                
+        return mapped_data
+                
         return mapped_data
 
     def get_source_column(self, target_column: str, file_path: Optional[str] = None) -> str:
@@ -66,10 +81,11 @@ class SchemaMapper:
         return [self.get_source_column(col) for col in target_columns]
 
     def to_dict(self) -> Dict[str, Any]:
-        """Converts the mapper state to a serializable dictionary."""
+        """Converts the mapper state to a dictionary."""
         return {
             "mapping": self.mapping,
-            "file_mappings": self.file_mappings
+            "file_mappings": self.file_mappings,
+            "transforms": self.transforms
         }
 
     @classmethod
@@ -77,7 +93,8 @@ class SchemaMapper:
         """Creates a SchemaMapper from a dictionary."""
         return cls(
             mapping=data.get("mapping"),
-            file_mappings=data.get("file_mappings")
+            file_mappings=data.get("file_mappings"),
+            transforms=data.get("transforms")
         )
 
     def merge(self, other: 'SchemaMapper', self_files: List[str], other_files: List[str]) -> 'SchemaMapper':
@@ -112,7 +129,10 @@ class SchemaMapper:
                 # No conflict with current global mapping, can add safely.
                 new_global_mapping[src_col] = target_col
                 
-        return SchemaMapper(new_global_mapping, new_file_mappings)
+        new_transforms = self.transforms.copy()
+        new_transforms.update(other.transforms)
+        
+        return SchemaMapper(new_global_mapping, new_file_mappings, new_transforms)
 
     def __repr__(self) -> str:
         return f"SchemaMapper(mapping={self.mapping}, file_mappings={self.file_mappings})"

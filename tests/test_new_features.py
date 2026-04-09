@@ -66,21 +66,47 @@ def test_stratified_split(tmp_path):
     assert label_counts[0] == 16
     assert label_counts[1] == 4
 
-def test_file_mapping(evolution_data_dir):
-    dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
+def test_file_mapping_exclusive(evolution_data_dir):
+    # CASE A: Column 'score' exists ONLY in file2.
+    # When we remap it, 'score' should disappear from global schema.
+    dataset = IndexedParquetDataset.from_folder(evolution_data_dir, pattern="file2.parquet")
+    assert "score" in dataset.schema
     
-    # File 2 has "score". Let's map it to "quality" for that file
     file2_path = os.path.abspath(os.path.join(evolution_data_dir, "file2.parquet"))
     mapped_ds = dataset.set_file_mapping(file2_path, {"score": "quality"})
     
-    # Row from file 1 should be unchanged
-    assert "val" in mapped_ds[0]
+    # 'score' is remapped in ALL files it appears in (which is only file2)
+    assert "quality" in mapped_ds.schema
+    assert "score" not in mapped_ds.schema
     
-    # Row from file 2 should have "quality" instead of "score"
-    row3 = mapped_ds[2]
-    assert "quality" in row3
-    assert row3["quality"] == 0.5
-    assert "score" not in row3
+    row = mapped_ds[0]
+    assert "quality" in row
+    assert "score" not in row
+
+def test_file_mapping_partial(evolution_data_dir, tmp_path):
+    # CASE B: Column 'id' exists in BOTH file1 and file2.
+    # When we remap it ONLY in file2, 'id' should remain in global schema.
+    dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
+    assert "id" in dataset.schema
+    
+    file2_path = os.path.abspath(os.path.join(evolution_data_dir, "file2.parquet"))
+    # Remap 'id' -> 'new_id' ONLY for file2
+    mapped_ds = dataset.set_file_mapping(file2_path, {"id": "new_id"})
+    
+    # 'id' still exists in file1 and is NOT remapped there.
+    # So both 'id' and 'new_id' must be in schema for consistency.
+    assert "id" in mapped_ds.schema
+    assert "new_id" in mapped_ds.schema
+    
+    # Row from file 1 (idx 0, 1)
+    row_f1 = mapped_ds[0]
+    assert row_f1["id"] == 1
+    assert row_f1["new_id"] is None
+    
+    # Row from file 2 (idx 2, 3)
+    row_f2 = mapped_ds[2]
+    assert row_f2["new_id"] == 3
+    assert row_f2["id"] is None
 
 def test_filter_optimized_path(evolution_data_dir):
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)

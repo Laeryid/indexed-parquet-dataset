@@ -1,11 +1,13 @@
 import os
 import numpy as np
 import torch
+import warnings
 from torch.utils.data import Dataset
 from typing import List, Dict, Any, Optional, Callable, Union
 import pyarrow.parquet as pq
 import pyarrow as pa
 import pyarrow.compute as pc
+import fnmatch
 from .indexer import scan_directory, BaseIndex, FileInfo
 from .schema import SchemaMapper
 
@@ -17,7 +19,12 @@ class IndexedParquetDataset(Dataset):
         index: BaseIndex, 
         indices: Optional[np.ndarray] = None,
         mapper: Optional[SchemaMapper] = None,
-        transform: Optional[Callable] = None
+        include_source_column: bool = False,
+        source_column_name: str = "__source_file__",
+        default_fill_value: Any = None,
+        fill_values_by_type: Optional[Dict[str, Any]] = None,
+        fill_values_by_column: Optional[Dict[str, Any]] = None,
+        auto_fill: bool = False
     ):
         """Initializes the dataset.
         
@@ -25,11 +32,26 @@ class IndexedParquetDataset(Dataset):
             index: A BaseIndex object containing dataset metadata.
             indices: Array of global indices to expose (for subsetting/shuffling).
             mapper: SchemaMapper for column renaming.
-            transform: A callable to apply to each row after retrieval and mapping.
+            include_source_column: If True, adds a virtual column with the source file path.
+            source_column_name: Name of the virtual source column.
+            default_fill_value: Value to use for missing data if no specific rule matches.
+            fill_values_by_type: Dict mapping PyArrow types to default values.
+            fill_values_by_column: Dict mapping column names to default values.
+            auto_fill: If True, automatically populates fill_values_by_type with defaults.
         """
         self.index = index
         self.mapper = mapper or SchemaMapper()
-        self.transform = transform
+        self.include_source_column = include_source_column
+        self.source_column_name = source_column_name
+        
+        self.default_fill_value = default_fill_value
+        self.fill_values_by_type = fill_values_by_type or {}
+        
+        if auto_fill:
+            self._apply_auto_fill()
+            
+        self.fill_values_by_column = fill_values_by_column or {}
+        self._type_casts: Dict[str, type] = {} # Internal use for concat upcasting
         
         # indices allows for shuffling, filtering, and subsets without modifying the base index
         if indices is not None:
@@ -49,66 +71,111 @@ class IndexedParquetDataset(Dataset):
         directory: str, 
         pattern: str = "*.parquet", 
         recursive: bool = True, 
-        strict_schema: bool = False
+        strict_schema: bool = False,
+        auto_fill: bool = False,
+        **kwargs
     ) -> 'IndexedParquetDataset':
-        """Creates an IndexedParquetDataset by scanning a directory.
-        
-        Args:
-            directory: Directory to scan.
-            pattern: File pattern (default: "*.parquet").
-            recursive: Whether to scan subdirectories (default: True).
-            strict_schema: If True, all files must have identical schemas.
-            
-        Returns:
-            An initialized IndexedParquetDataset.
-        """
+        """Creates an IndexedParquetDataset by scanning a directory."""
         index = scan_directory(directory, pattern, recursive, strict_schema)
-        return cls(index)
+        return cls(index, auto_fill=auto_fill, **kwargs)
 
     @property
     def schema(self) -> List[str]:
         """Returns the list of column names available in the dataset (after mapping)."""
         all_cols = set()
         
-        # 1. Columns from scan (potentially unmapped)
+        # 1. Base columns from original files
         for col in self.index.all_columns:
-            all_cols.add(self.mapper.mapping.get(col, col))
-            
-        # 2. Columns from file-specific mappings
+            target = self.mapper.mapping.get(col, col)
+            if target != col:
+                # Global mapping shadows the original name
+                all_cols.add(target)
+            else:
+                # Local mapping check: is it shadowed in ALL files it appears in?
+                is_visible_as_original = False
+                for f_info in self.index.files:
+                    if col in f_info.columns:
+                        f_map = self.mapper.file_mappings.get(f_info.path, {})
+                        if col not in f_map:
+                            is_visible_as_original = True
+                            break
+                if is_visible_as_original:
+                    all_cols.add(col)
+                    
+        # 2. Add file-specific mapping targets
         for f_map in self.mapper.file_mappings.values():
             for target_col in f_map.values():
                 all_cols.add(target_col)
                 
+        # 3. Add computed columns
+        for col in self.mapper.transforms.keys():
+            all_cols.add(col)
+            
+        if self.include_source_column:
+            all_cols.add(self.source_column_name)
+            
         return sorted(list(all_cols))
 
     def __len__(self) -> int:
-        """Returns the number of samples in the dataset."""
         return len(self.indices)
 
     def _get_file_and_local_idx(self, global_idx: int) -> tuple[int, int]:
-        """Maps a dataset index to a file index and local row index within that file."""
         actual_idx = self.indices[global_idx]
-        
-        # Find which file contains this actual_idx
         file_idx = np.searchsorted(self.file_offsets, actual_idx, side='right') - 1
         local_idx = actual_idx - self.file_offsets[file_idx]
-        
         return int(file_idx), int(local_idx)
 
     def _get_file_handle(self, file_idx: int) -> pq.ParquetFile:
-        """Returns a cached ParquetFile handle for the given file index."""
         if file_idx not in self._file_handles:
             file_path = self.index.files[file_idx].path
             self._file_handles[file_idx] = pq.ParquetFile(file_path)
         return self._file_handles[file_idx]
 
+    def _get_fill_value(self, column_name: str) -> Any:
+        """Determines the fill value for a missing column based on hierarchy."""
+        if column_name in self.fill_values_by_column:
+            return self.fill_values_by_column[column_name]
+        
+        # Find original name (best effort)
+        orig_name = None
+        for k, v in self.mapper.mapping.items():
+            if v == column_name:
+                orig_name = k
+                break
+        if orig_name is None: orig_name = column_name
+        
+        col_type = self.index.column_types.get(orig_name)
+        if col_type in self.fill_values_by_type:
+            return self.fill_values_by_type[col_type]
+            
+        return self.default_fill_value
+
+    def _apply_auto_fill(self):
+        """Populates fill_values_by_type with default values for common types."""
+        defaults = {
+            # Integers
+            'int8': 0, 'int16': 0, 'int32': 0, 'int64': 0,
+            'uint8': 0, 'uint16': 0, 'uint32': 0, 'uint64': 0,
+            # Floats
+            'float16': 0.0, 'float32': 0.0, 'float64': 0.0, 'double': 0.0, 'halffloat': 0.0,
+            # Strings
+            'string': "", 'large_string': "", 'utf8': "", 'large_utf8': "",
+            # Bool
+            'bool': False,
+            # Dictionary/Categorical (best effort)
+            'dictionary': ""
+        }
+        for t in set(self.index.column_types.values()):
+            clean_t = t.lower().split('[')[0] # Handle complex types like list[int64]
+            if clean_t in defaults and t not in self.fill_values_by_type:
+                self.fill_values_by_type[t] = defaults[clean_t]
+
     def _read_rows_from_file(self, file_idx: int, local_indices: List[int]) -> List[Dict[str, Any]]:
-        """Reads multiple rows from a single file efficiently using row group grouping."""
+        """Reads multiple rows from a single file efficiently."""
         pf = self._get_file_handle(file_idx)
         file_info = self.index.files[file_idx]
         file_path = file_info.path
         
-        # Group indices by row group for batch reading
         rg_to_indices = {}
         cumulative_rg_rows = 0
         for i, rg_rows in enumerate(file_info.row_groups):
@@ -119,47 +186,55 @@ class IndexedParquetDataset(Dataset):
             cumulative_rg_rows += rg_rows
 
         local_idx_to_result = {}
+        target_schema = self.schema
         
         for rg_idx, rg_local_indices in rg_to_indices.items():
             table = pf.read_row_group(rg_idx)
-            
-            # Map rg_idx back to its starting offset in the file
             rg_start_offset = sum(file_info.row_groups[:rg_idx])
             
             for l_idx_in_rg in rg_local_indices:
                 row_dict = table.slice(l_idx_in_rg, 1).to_pydict()
                 item = {k: v[0] for k, v in row_dict.items()}
                 
-                # --- Schema Evolution ---
+                # 0. Ensure all columns from index are present (as None/Fill)
                 for col in self.index.all_columns:
                     if col not in item:
-                        item[col] = None
+                        item[col] = self._get_fill_value(self.mapper.mapping.get(col, col))
                 
+                # 1. Inject virtual source column if needed
+                if self.include_source_column:
+                    item[self.source_column_name] = file_path
+                
+                # 2. Apply global then file-specific mapping logic & Computed Columns (via Mapper)
                 item = self.mapper.map_columns(item, file_path)
                 
-                # --- Ensure all columns in the schema are present ---
-                target_schema = self.schema
+                # Ensure all columns in final schema are present
+                mapped_item = {}
                 for col in target_schema:
                     if col not in item:
-                        item[col] = None
+                        val = self._get_fill_value(col)
+                    else:
+                        val = item[col]
+                    
+                    # Handle None if still None and default is set
+                    if val is None:
+                        val = self._get_fill_value(col)
+                    
+                    if col in self._type_casts and val is not None:
+                        try:
+                            val = self._type_casts[col](val)
+                        except: pass
+                        
+                    mapped_item[col] = val
                 
-                if self.transform:
-                    item = self.transform(item)
-                
-                local_idx_to_result[l_idx_in_rg + rg_start_offset] = item
+                local_idx_to_result[l_idx_in_rg + rg_start_offset] = mapped_item
 
-        results = []
-        for l_idx in local_indices:
-            results.append(local_idx_to_result[l_idx])
-            
-        return results
+        return [local_idx_to_result[l_idx] for l_idx in local_indices]
 
     def __getitem__(self, idx: Union[int, List[int], slice, np.ndarray]) -> Any:
-        """Retrieves items by index, slice, or list of indices."""
         if isinstance(idx, (int, np.integer)):
             if idx < 0: idx += len(self)
-            if idx < 0 or idx >= len(self):
-                raise IndexError("Index out of range")
+            if idx < 0 or idx >= len(self): raise IndexError("Index out of range")
             return self.__getitems__([int(idx)])[0]
         elif isinstance(idx, (list, np.ndarray)):
             return self.__getitems__(list(idx))
@@ -169,33 +244,52 @@ class IndexedParquetDataset(Dataset):
             raise TypeError(f"Invalid index type: {type(idx)}")
 
     def __getitems__(self, indices: List[int]) -> List[Dict[str, Any]]:
-        """PyTorch-compatible batched retrieval."""
-        file_to_local_indices: Dict[int, List[tuple[int, int]]] = {}
+        file_to_local_indices = {}
         for i, global_idx in enumerate(indices):
             f_idx, l_idx = self._get_file_and_local_idx(global_idx)
-            if f_idx not in file_to_local_indices:
-                file_to_local_indices[f_idx] = []
+            if f_idx not in file_to_local_indices: file_to_local_indices[f_idx] = []
             file_to_local_indices[f_idx].append((i, l_idx))
             
-        results: List[Optional[Dict[str, Any]]] = [None] * len(indices)
+        results = [None] * len(indices)
         for f_idx, indexed_l_indices in file_to_local_indices.items():
             original_positions = [x[0] for x in indexed_l_indices]
             l_indices = [x[1] for x in indexed_l_indices]
-            
             file_results = self._read_rows_from_file(f_idx, l_indices)
             for pos, res in zip(original_positions, file_results):
                 results[pos] = res
-                
-        return results  # type: ignore
+        return results # type: ignore
 
-    # --- Fluent API ---
-    
     def shuffle(self, seed: Optional[int] = None) -> 'IndexedParquetDataset':
-        """Returns a new dataset with shuffled indices."""
         rng = np.random.default_rng(seed)
         new_indices = self.indices.copy()
         rng.shuffle(new_indices)
-        return IndexedParquetDataset(self.index, new_indices, self.mapper, self.transform)
+        return self._clone_with_indices(new_indices)
+
+    def select(self, range_or_indices: Union[slice, List[int], np.ndarray]) -> 'IndexedParquetDataset':
+        new_indices = self.indices[range_or_indices]
+        return self._clone_with_indices(new_indices)
+
+    def limit(self, n: int) -> 'IndexedParquetDataset':
+        return self.select(slice(0, n))
+
+    def _clone_with_indices(self, new_indices: np.ndarray) -> 'IndexedParquetDataset':
+        ds = IndexedParquetDataset(
+            self.index, new_indices, self.mapper,
+            self.include_source_column, self.source_column_name,
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
+        )
+        ds._type_casts = self._type_casts.copy()
+        return ds
+
+    def _clone_with_mapper(self, new_mapper: SchemaMapper) -> 'IndexedParquetDataset':
+        ds = IndexedParquetDataset(
+            self.index, self.indices.copy(), new_mapper,
+            self.include_source_column, self.source_column_name,
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
+        )
+        ds._type_casts = self._type_casts.copy()
+        return ds
+
 
     def train_test_split(
         self, 
@@ -204,17 +298,7 @@ class IndexedParquetDataset(Dataset):
         seed: Optional[int] = None, 
         stratify_by: Optional[str] = None
     ) -> tuple['IndexedParquetDataset', 'IndexedParquetDataset']:
-        """Splits the dataset into train and test sets.
-        
-        Args:
-            test_size: Fraction (0-1) or absolute number of samples for the test set.
-            shuffle: Whether to shuffle before splitting.
-            seed: Random seed.
-            stratify_by: Column name to use for stratified splitting.
-            
-        Returns:
-            A tuple of (train_dataset, test_dataset).
-        """
+        """Splits the dataset into train and test sets."""
         n = len(self)
         if isinstance(test_size, float):
             n_test = int(n * test_size)
@@ -241,8 +325,6 @@ class IndexedParquetDataset(Dataset):
                     rng.shuffle(idx_in_group)
                 
                 group_n_test = int(len(idx_in_group) * (n_test / n))
-                # Ensure at least one test sample if group is large enough, 
-                # or handle edge cases as needed.
                 test_indices_list.extend(idx_in_group[:group_n_test])
                 train_indices_list.extend(idx_in_group[group_n_test:])
             
@@ -257,314 +339,303 @@ class IndexedParquetDataset(Dataset):
             train_indices = indices[:n_train]
             test_indices = indices[n_train:]
 
-        train_ds = IndexedParquetDataset(self.index, train_indices, self.mapper, self.transform)
-        test_ds = IndexedParquetDataset(self.index, test_indices, self.mapper, self.transform)
-        return train_ds, test_ds
+        return self._clone_with_indices(train_indices), self._clone_with_indices(test_indices)
 
-    def limit(self, n: int) -> 'IndexedParquetDataset':
-        """Returns a new dataset limited to the first n samples."""
-        return IndexedParquetDataset(self.index, self.indices[:n], self.mapper, self.transform)
+    def copy(self) -> 'IndexedParquetDataset':
+        """Returns a copy of the dataset."""
+        return self._clone_with_indices(self.indices.copy())
 
-    def select(self, range_or_indices: Union[slice, List[int], np.ndarray]) -> 'IndexedParquetDataset':
-        """Returns a new dataset with the specified subset of indices."""
-        new_indices = self.indices[range_or_indices]
-        return IndexedParquetDataset(self.index, new_indices, self.mapper, self.transform)
+    def alias(self, name: str, source: Union[str, Callable]) -> 'IndexedParquetDataset':
+        """Creates a new alias for a column or a new computed column.
+        
+        Args:
+            name: The target name of the column.
+            source: Either an original column name (string) or a function function(row) -> value.
+            
+        Returns:
+            A new IndexedParquetDataset instance.
+        """
+        new_mapper = SchemaMapper(
+            mapping=self.mapper.mapping.copy(),
+            file_mappings=self.mapper.file_mappings.copy(),
+            transforms=self.mapper.transforms.copy()
+        )
+        if isinstance(source, str):
+            new_mapper.mapping[source] = name
+            # Remove transform if we are re-aliasing to a source column
+            if name in new_mapper.transforms:
+                del new_mapper.transforms[name]
+        elif callable(source):
+            new_mapper.transforms[name] = source
+        else:
+            raise TypeError("Alias source must be a string or a callable.")
+            
+        return self._clone_with_mapper(new_mapper)
+
+    def set_file_mapping(self, file_path: str, mapping: Dict[str, str]) -> 'IndexedParquetDataset':
+        """Sets a file-specific column mapping.
+        
+        Args:
+            file_path: Absolute path to the file.
+            mapping: Dict mapping source column names to target names.
+        """
+        new_mapper = SchemaMapper(
+            mapping=self.mapper.mapping.copy(),
+            file_mappings=self.mapper.file_mappings.copy(),
+            transforms=self.mapper.transforms.copy()
+        )
+        # Ensure absolute path
+        abs_path = os.path.abspath(file_path)
+        new_mapper.file_mappings[abs_path] = mapping
+        return self._clone_with_mapper(new_mapper)
+
+    def rename(self, old_name: str, new_name: str) -> 'IndexedParquetDataset':
+        """Renames a column."""
+        return self.alias(new_name, old_name)
+
+    def rename_column(self, old_name: str, new_name: str) -> 'IndexedParquetDataset':
+        """Alias for rename(). for backward compatibility."""
+        return self.rename(old_name, new_name)
+
+    def cast(self, column: str, target_type: Union[type, str, Callable]) -> 'IndexedParquetDataset':
+        """Changes the type of a column using an alias transformation.
+        
+        Args:
+            column: The name of the column to cast.
+            target_type: The target type (int, float, str, etc.) or a callable.
+        """
+        if isinstance(target_type, str):
+            if target_type == 'int': cast_fn = int
+            elif target_type in ('float', 'double'): cast_fn = float
+            elif target_type in ('str', 'string'): cast_fn = str
+            else: raise ValueError(f"Unsupported type string: {target_type}")
+        elif callable(target_type):
+            cast_fn = target_type # type: ignore
+        else:
+            raise TypeError("target_type must be a string (int, float, str) or a callable.")
+
+        def transform(row):
+            val = row.get(column)
+            if val is None: return None
+            try: return cast_fn(val)
+            except: return val
+            
+        return self.alias(column, transform)
+
+    def to_parquet(self, path: str, chunk_size: int = 1024):
+        """Materializes the dataset to a Parquet file."""
+        writer = None
+        for i in range(0, len(self), chunk_size):
+            batch_indices = list(range(i, min(i + chunk_size, len(self))))
+            batch_data = self[batch_indices]
+            
+            # Ensure we have data
+            if not batch_data: continue
+            
+            table = pa.Table.from_pylist(batch_data)
+            if writer is None:
+                writer = pq.ParquetWriter(path, table.schema)
+            writer.write_table(table)
+            
+        if writer:
+            writer.close()
+
+    def clone(self, path: str) -> 'IndexedParquetDataset':
+        """Materializes all computations and returns a new dataset instance."""
+        self.to_parquet(path)
+        return IndexedParquetDataset.from_folder(os.path.dirname(path), pattern=os.path.basename(path))
 
     def filter(
         self, 
-        path_pattern: Optional[str] = None,
+        path_pattern: Optional[Union[str, Callable]] = None,
+        path_filter: Optional[Union[str, List[str]]] = None,
         column_conditions: Optional[Dict[str, Any]] = None,
         predicate: Optional[Callable[[Dict[str, Any]], bool]] = None
     ) -> 'IndexedParquetDataset':
-        """Optimized multi-level filter.
-        
-        Args:
-            path_pattern: Substring to match in file paths.
-            column_conditions: Dictionary of {col: value} or {col: (op, value)}.
-                               Supported ops: ==, !=, >, >=, <, <=.
-            predicate: Python function for row-level filtering (applied last).
-            
-        Returns:
-            A new IndexedParquetDataset containing only the matching rows.
-        """
+        if callable(path_pattern): predicate = path_pattern; path_pattern = None
         current_indices = self.indices.copy()
 
-        # Level 1: Path filtering (Metadata level)
-        if path_pattern:
+        if path_pattern or path_filter:
             valid_file_indices = []
+            filters = [path_filter] if isinstance(path_filter, str) else (path_filter or [])
             for i, f in enumerate(self.index.files):
-                if path_pattern in f.path:
-                    valid_file_indices.append(i)
+                match = (path_pattern and isinstance(path_pattern, str) and path_pattern in f.path)
+                if not match:
+                    for pattern in filters:
+                        if fnmatch.fnmatch(f.path, pattern): match = True; break
+                if match: valid_file_indices.append(i)
             
-            # Create a mask for self.indices
             mask = np.zeros(len(current_indices), dtype=bool)
             for f_idx in valid_file_indices:
-                start = self.file_offsets[f_idx]
-                end = self.file_offsets[f_idx + 1]
-                # mark indices that fall within [start, end)
+                start, end = self.file_offsets[f_idx], self.file_offsets[f_idx + 1]
                 mask |= (current_indices >= start) & (current_indices < end)
-            
             current_indices = current_indices[mask]
 
-        if len(current_indices) == 0:
-            return IndexedParquetDataset(self.index, current_indices, self.mapper, self.transform)
-
-        # Level 2: Columnar filtering (Column level)
-        if column_conditions:
-            # Group current_indices by file for efficient batch reading of filter columns
+        if len(current_indices) > 0 and column_conditions:
             file_to_indices = {}
             for idx in current_indices:
                 f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
-                if f_idx not in file_to_indices:
-                    file_to_indices[f_idx] = []
+                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
                 file_to_indices[f_idx].append(idx)
             
             new_indices_list = []
-            cols_to_read = [self.mapper.get_source_column(c) for c in column_conditions.keys()]
-            
             for f_idx, f_global_indices in file_to_indices.items():
-                f_info = self.index.files[f_idx]
-                pf = self._get_file_handle(f_idx)
-                
-                # Check if file has all required columns (Schema Evolution handled)
-                # Actually, we read only available columns.
-                available_cols = [c for c in cols_to_read if c in f_info.columns]
-                
-                # We need to filter row by row eventually, but we can do it per file.
-                # To be efficient, we read only requested columns for the WHOLE file (or just the indices)
-                # If f_global_indices is a large portion of the file, reading full column is fine.
-                table = pf.read(columns=available_cols)
-                
-                # Apply conditions using pyarrow.compute
+                f_info, pf = self.index.files[f_idx], self._get_file_handle(f_idx)
+                # Simplified condition check via pyarrow
+                table = pf.read(columns=[self.mapper.get_source_column(c) for c in column_conditions.keys() if self.mapper.get_source_column(c) in f_info.columns])
                 file_mask = None
                 for col, cond in column_conditions.items():
                     src_col = self.mapper.get_source_column(col, f_info.path)
-                    
                     if src_col not in table.column_names:
-                        # Column missing in this file -> considered None
-                        # We create a dummy null array for comparison
-                        arr = pa.array([None] * len(table))
+                        c_mask = pa.scalar(None, type=pa.bool_())
                     else:
                         arr = table.column(src_col)
+                        if isinstance(cond, tuple):
+                            op, val = cond
+                            if op == '==': c_mask = pc.equal(arr, val)
+                            elif op == '>': c_mask = pc.greater(arr, val)
+                            elif op == '>=': c_mask = pc.greater_equal(arr, val)
+                            elif op == '<': c_mask = pc.less(arr, val)
+                            elif op == '<=': c_mask = pc.less_equal(arr, val)
+                            else: c_mask = None
+                        else:
+                            c_mask = pc.equal(arr, cond)
                     
-                    if isinstance(cond, tuple):
-                        op, val = cond
-                        if op == '==': c_mask = pc.equal(arr, val)
-                        elif op == '!=': c_mask = pc.not_equal(arr, val)
-                        elif op == '>': c_mask = pc.greater(arr, val)
-                        elif op == '>=': c_mask = pc.greater_equal(arr, val)
-                        elif op == '<': c_mask = pc.less(arr, val)
-                        elif op == '<=': c_mask = pc.less_equal(arr, val)
-                        else: raise ValueError(f"Unsupported operator: {op}")
-                    else:
-                        c_mask = pc.equal(arr, cond)
-                    
-                    if file_mask is None:
-                        file_mask = c_mask
-                    else:
-                        file_mask = pc.and_(file_mask, c_mask)
+                    if c_mask is not None:
+                        if file_mask is None: file_mask = c_mask
+                        else: file_mask = pc.and_(file_mask, c_mask)
                 
-                # Handle potential nulls in the mask (e.g. from comparisons with missing columns)
-                file_mask = pc.fill_null(file_mask, False)
-                file_mask_np = file_mask.to_numpy(zero_copy_only=False).astype(bool)
+                if file_mask is None:
+                    file_mask_np = np.ones(len(table), dtype=bool)
+                else:
+                    file_mask_np = pc.fill_null(file_mask, False).to_numpy().astype(bool)
                 
-                # Local indices are (f_global_indices - offset)
                 f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
-                
-                # Filter f_global_indices where file_mask_np[f_local_indices] is True
-                valid_global_indices = np.array(f_global_indices)[file_mask_np[f_local_indices]]
-                new_indices_list.append(valid_global_indices)
-                
-            if new_indices_list:
-                current_indices = np.concatenate(new_indices_list)
-            else:
-                current_indices = np.array([], dtype=int)
+                new_indices_list.append(np.array(f_global_indices)[file_mask_np[f_local_indices]])
+            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
 
-        if len(current_indices) == 0:
-            return IndexedParquetDataset(self.index, current_indices, self.mapper, self.transform)
-
-        # Level 3: Predicate filtering (Row level)
-        if predicate:
-            temp_ds = IndexedParquetDataset(self.index, current_indices, self.mapper, self.transform)
+        if len(current_indices) > 0 and predicate:
+            temp_ds = self._clone_with_indices(current_indices)
             mask = [predicate(temp_ds[i]) for i in range(len(temp_ds))]
             current_indices = current_indices[np.array(mask)]
 
-        return IndexedParquetDataset(self.index, current_indices, self.mapper, self.transform)
-
-    def map(self, fn: Callable[[Dict[str, Any]], Any]) -> 'IndexedParquetDataset':
-        """Adds a transformation function to be applied after retrieval."""
-        old_transform = self.transform
-        if old_transform:
-            new_transform = lambda x: fn(old_transform(x))
-        else:
-            new_transform = fn
-        return IndexedParquetDataset(self.index, self.indices, self.mapper, new_transform)
-
-    def rename_column(self, old: str, new: str) -> 'IndexedParquetDataset':
-        """Renames a column globally."""
-        new_mapping = self.mapper.mapping.copy()
-        new_mapping[old] = new
-        new_mapper = SchemaMapper(new_mapping, self.mapper.file_mappings)
-        return IndexedParquetDataset(self.index, self.indices, new_mapper, self.transform)
-
-    def set_file_mapping(self, file_path: str, mapping: Dict[str, str]) -> 'IndexedParquetDataset':
-        """Sets a schema mapping for a specific file."""
-        new_file_mappings = self.mapper.file_mappings.copy()
-        abs_path = os.path.abspath(file_path)
-        new_file_mappings[abs_path] = mapping
-        new_mapper = SchemaMapper(self.mapper.mapping, new_file_mappings)
-        return IndexedParquetDataset(self.index, self.indices, new_mapper, self.transform)
-
-    def copy(self) -> 'IndexedParquetDataset':
-        """Returns a new instance of the dataset with a copy of current indices."""
-        return IndexedParquetDataset(
-            index=self.index,
-            indices=self.indices.copy(),
-            mapper=self.mapper,
-            transform=self.transform
-        )
-
-    def clone(self, folder_path: str, filename: Optional[str] = None, batch_size: int = 10000) -> str:
-        """Exports the visible state of the dataset to a new Parquet file.
-        
-        The resulting file contains only the rows currently in the dataset index,
-        and uses the aliased column names. Transform is NOT applied to exported data.
-        
-        Args:
-            folder_path: Directory to save the new file.
-            filename: Name of the file (defaults to dataset_clone_<timestamp>.parquet).
-            batch_size: Number of rows to process at once.
-            
-        Returns:
-            Absolute path to the created file.
-        """
-        import time
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path, exist_ok=True)
-            
-        if filename is None:
-            filename = f"dataset_clone_{int(time.time())}.parquet"
-        
-        dest_path = os.path.join(folder_path, filename)
-        
-        # We need to determine the schema from the first batch to initialize the writer
-        if len(self) == 0:
-            raise ValueError("Cannot clone an empty dataset")
-
-        # Temporarily disable transform for cloning to get raw (but mapped) data
-        original_transform = self.transform
-        self.transform = None
-        
-        try:
-            writer: Optional[pq.ParquetWriter] = None
-            
-            for i in range(0, len(self), batch_size):
-                end_idx = min(i + batch_size, len(self))
-                batch_indices = list(range(i, end_idx))
-                batch_data = self[batch_indices] # Returns list of dicts
-                
-                # Convert list of dicts to pyarrow Table
-                # We use the dataset's schema to ensure all columns are present (as None if missing)
-                table_schema = self.schema
-                rows_for_pa = {col: [] for col in table_schema}
-                for row in batch_data:
-                    for col in table_schema:
-                        rows_for_pa[col].append(row.get(col))
-                
-                table = pa.Table.from_pydict(rows_for_pa)
-                
-                if writer is None:
-                    writer = pq.ParquetWriter(dest_path, table.schema)
-                
-                writer.write_table(table)
-                
-            if writer:
-                writer.close()
-        finally:
-            self.transform = original_transform
-            
-        return os.path.abspath(dest_path)
+        return self._clone_with_indices(current_indices)
 
     def concat(self, other: 'IndexedParquetDataset') -> 'IndexedParquetDataset':
-        """Concatenates this dataset with another one vertically.
-        
-        Merges schemas (preserving conflicting aliases) and chains transforms if necessary.
-        
-        Args:
-            other: The dataset to append to this one.
-            
-        Returns:
-            A new combined IndexedParquetDataset.
-        """
-        # 1. Merge Index
+        """Concatenates datasets with type checking."""
         new_files = self.index.files + other.index.files
         new_total_rows = self.index.total_rows + other.index.total_rows
         new_all_columns = sorted(list(set(self.index.all_columns) | set(other.index.all_columns)))
-        new_index = BaseIndex(new_files, new_total_rows, new_all_columns)
         
-        # 2. Merge Indices
-        other_indices_shifted = other.indices + self.index.total_rows
-        new_indices = np.concatenate([self.indices, other_indices_shifted])
+        new_column_types = self.index.column_types.copy()
+        type_casts = self._type_casts.copy()
         
-        # 3. Merge Mapper
-        self_abs_files = [f.path for f in self.index.files]
-        other_abs_files = [f.path for f in other.index.files]
-        new_mapper = self.mapper.merge(other.mapper, self_abs_files, other_abs_files)
+        for col, o_type in other.index.column_types.items():
+            if col in new_column_types:
+                s_type = new_column_types[col]
+                if s_type != o_type:
+                    common_type = 'string' # Safety default
+                    s_is_float = 'float' in s_type or 'double' in s_type
+                    o_is_float = 'float' in o_type or 'double' in o_type
+                    s_is_int = 'int' in s_type
+                    o_is_int = 'int' in o_type
+                    
+                    if (s_is_int and o_is_float) or (s_is_float and o_is_int):
+                        common_type = 'double'
+                    elif s_is_float and o_is_float:
+                        common_type = 'double'
+                    
+                    warnings.warn(f"Type mismatch for column '{col}': {s_type} vs {o_type}. Upcasting to {common_type}.")
+                    new_column_types[col] = common_type
+                    
+                    cast_fn = str if common_type == 'string' else (float if common_type == 'double' else None)
+                    if cast_fn: type_casts[col] = cast_fn
+            else:
+                new_column_types[col] = o_type
+                
+        new_index = BaseIndex(new_files, new_total_rows, new_all_columns, new_column_types)
+        new_indices = np.concatenate([self.indices, other.indices + self.index.total_rows])
         
-        # 4. Merge Transform
-        # If both datasets have different transforms, we need a wrapper
-        if self.transform == other.transform:
-            new_transform = self.transform
-        elif self.transform and other.transform:
-            # Determine split point in the combined files list
-            split_file_idx = len(self.index.files)
-            
-            # We'll re-implement _read_rows_from_file logic to handle split transform
-            # But simpler: we use a wrapper that detects the file_path (not easily available in transform)
-            # Actually, let's keep it simple for now and use self.transform or chain them
-            # For now, we chain them if they exist or just use self.transform
-            # Given the request, we should probably warn or just pick one.
-            # I will chain them for now, but this is usually not what's wanted for vertical concat.
-            # Best is to pick self.transform and warn.
-            import warnings
-            warnings.warn("Both datasets have different transforms. Using transform from the first dataset.")
-            new_transform = self.transform
-        else:
-            new_transform = self.transform or other.transform
-            
-        return IndexedParquetDataset(new_index, new_indices, new_mapper, new_transform)
-
-    def save_index(self, path: str) -> None:
-        """Saves the dataset index and metadata to a pickle file."""
-        import pickle
-        state = {
-            "index": self.index,
-            "indices": self.indices,
-            "mapper": self.mapper.to_dict(),
-            "transform": self.transform
-        }
-        with open(path, "wb") as f:
-            pickle.dump(state, f)
-
-    @classmethod
-    def load_index(cls, path: str) -> 'IndexedParquetDataset':
-        """Loads a dataset index from a pickle file."""
-        import pickle
-        with open(path, "rb") as f:
-            state = pickle.load(f)
+        new_mapper = self.mapper.merge(other.mapper, [f.path for f in self.index.files], [f.path for f in other.index.files])
         
-        return cls(
-            index=state["index"],
-            indices=state["indices"],
-            mapper=SchemaMapper.from_dict(state["mapper"]),
-            transform=state["transform"]
+        result = IndexedParquetDataset(
+            new_index, new_indices, new_mapper,
+            self.include_source_column, self.source_column_name,
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
         )
+        result._type_casts = type_casts
+        return result
+
+    def get_supported_types(self) -> Dict[str, Any]:
+        """Returns types and their current defaults."""
+        res = {}
+        for col, t in self.index.column_types.items():
+            default = self.fill_values_by_column.get(col) or self.fill_values_by_type.get(t) or self.default_fill_value
+            res[t] = {"example_column": col, "default": default}
+        return res
+
+    def generate_collate_fn(self, on_none: str = 'raise') -> Callable:
+        """Returns a DataLoader-compatible collate function with robust None handling.
+        
+        Args:
+            on_none: Strategy for handling None values.
+                'raise' (default): Raises a descriptive TypeError.
+                'drop': Drops samples containing None from the batch.
+                'fill': Replaces None with 0/"" based on auto-fill logic (if possible).
+        """
+        def collate_fn(batch):
+            from torch.utils.data._utils.collate import default_collate
+            
+            clean_batch = batch
+            if on_none in ('drop', 'fill'):
+                new_batch = []
+                for item in batch:
+                    has_none = any(v is None for v in item.values())
+                    if has_none:
+                        if on_none == 'drop':
+                            continue
+                        else: # fill
+                            item = item.copy()
+                            for k, v in item.items():
+                                if v is None:
+                                    item[k] = self._get_fill_value(k)
+                    new_batch.append(item)
+                clean_batch = new_batch
+
+            if not clean_batch:
+                return {}
+
+            try:
+                return default_collate(clean_batch)
+            except TypeError as e:
+                if 'NoneType' in str(e):
+                    # Identify the culprit
+                    for i, item in enumerate(batch):
+                        for k, v in item.items():
+                            if v is None:
+                                raise TypeError(
+                                    f"Batch collation failed: column '{k}' contains None at batch index {i}.\n"
+                                    f"PyTorch DataLoader cannot handle None values.\n"
+                                    f"Fix: Set 'auto_fill=True' or provide 'fill_values' when initializing IndexedParquetDataset."
+                                ) from None
+                raise e
+        return collate_fn
 
     def info(self) -> None:
         """Prints summary statistics and metadata for the dataset."""
         total_indexed_rows = self.index.total_rows
         visible_rows = len(self)
-        num_files = len(self.index.files)
+        num_indexed_files = len(self.index.files)
+        
+        # Calculate visible count per file
+        if visible_rows > 0:
+            file_indices = np.searchsorted(self.file_offsets, self.indices, side='right') - 1
+            unique_f_idx, counts = np.unique(file_indices, return_counts=True)
+            f_idx_to_visible_count = dict(zip(unique_f_idx, counts))
+        else:
+            f_idx_to_visible_count = {}
+            
+        active_files = len(f_idx_to_visible_count)
         
         # Calculate storage size
         total_bytes = 0
@@ -579,53 +650,88 @@ class IndexedParquetDataset(Dataset):
         else:
             storage_str = f"{total_bytes / (1024**3):.2f} GB"
             
-        print(f"\n{'='*70}")
+        print(f"\n{'='*95}")
         print(f" IndexedParquetDataset Summary")
-        print(f"{'='*70}")
-        print(f" Files:           {num_files:<10}  |  Storage Size:  {storage_str}")
-        print(f" Total Rows:      {total_indexed_rows:<10,}  |  Visible Rows:  {visible_rows:,} ({visible_rows/total_indexed_rows:.1%})")
-        print(f"{'-'*70}")
+        print(f"{'='*95}")
+        print(f" Files (Active/Indexed):  {active_files}/{num_indexed_files:<6}  |  Storage Size:  {storage_str}")
+        print(f" Rows (Visible/Total):    {visible_rows:,}/{total_indexed_rows:,} ({visible_rows/total_indexed_rows:.1%})")
+        print(f"{'-'*95}")
         
         # Files Table
         print("\nFiles in Index:")
-        file_header = f"{'#':<3} | {'Rows':>12} | {'Groups':>6} | {'Path':<}"
+        file_header = f"{'#':<3} | {'Visible':>12} | {'Total':>12} | {'%':>6} | {'Groups':>6} | {'Path':<}"
         print(file_header)
-        print("-" * 70)
+        print("-" * 95)
         for i, f in enumerate(self.index.files):
-            basename = os.path.basename(f.path)
+            vis_count = f_idx_to_visible_count.get(i, 0)
+            vis_ratio = (vis_count / f.num_rows) if f.num_rows > 0 else 0
             display_path = (f"...{f.path[-45:]}" if len(f.path) > 45 else f.path)
-            print(f"{i:<3} | {f.num_rows:>12,} | {len(f.row_groups):>6} | {display_path}")
+            print(f"{i:<3} | {vis_count:>12,} | {f.num_rows:>12,} | {vis_ratio:>6.1%} | {len(f.row_groups):>6} | {display_path}")
             
         # Columns Table
-        print("\nColumn Statistics:")
-        col_header = f"{'Column':<25} | {'Files':>6} | {'Presence':>8} | {'Est. Rows':>12} | {'Coverage'}"
+        print("\nColumn Statistics (Active State):")
+        col_header = f"{'Column':<25} | {'Type':<12} | {'Files':>6} | {'Presence':>8} | {'Visible Rows':>12} | {'Coverage'}"
         print(col_header)
-        print("-" * 70)
+        print("-" * 95)
         
         visible_schema = self.schema
         for col in visible_schema:
             files_present = 0
-            rows_present = 0
+            visible_rows_with_col = 0
+            orig_name = next((k for k, v in self.mapper.mapping.items() if v == col), col)
+            ctype = self.index.column_types.get(orig_name, "n/a")
             
-            for f in self.index.files:
+            for f_idx, f in enumerate(self.index.files):
                 src_col = self.mapper.get_source_column(col, f.path)
                 if src_col in f.columns:
                     files_present += 1
-                    rows_present += f.num_rows
+                    visible_rows_with_col += f_idx_to_visible_count.get(f_idx, 0)
             
-            presence_pct = files_present / num_files
-            coverage_pct = rows_present / total_indexed_rows
+            presence_pct = files_present / num_indexed_files
+            coverage_pct = visible_rows_with_col / visible_rows if visible_rows > 0 else 0
             
             # Truncate column name if too long
             col_display = (col[:22] + "...") if len(col) > 25 else col
-            print(f"{col_display:<25} | {files_present:>6} | {presence_pct:>8.1%} | {rows_present:>12,} | {coverage_pct:>8.1%}")
-            
+            print(f"{col_display:<25} | {ctype:<12} | {files_present:>6} | {presence_pct:>8.1%} | {visible_rows_with_col:>12,} | {coverage_pct:>8.1%}")
+        
         # Mappings
-        if self.mapper.mapping or self.mapper.file_mappings:
-            print("\nActive Mappings:")
+        if self.mapper.mapping or self.mapper.file_mappings or self.mapper.transforms:
+            print("\nActive Mappings & Transforms:")
             if self.mapper.mapping:
-                print(f"  Global Aliases: {self.mapper.mapping}")
+                print(f"  Aliases: {self.mapper.mapping}")
+            if self.mapper.transforms:
+                print(f"  Computed Columns: {list(self.mapper.transforms.keys())}")
             if self.mapper.file_mappings:
                 print(f"  File-specific overrides active for {len(self.mapper.file_mappings)} files")
         
-        print(f"{'='*70}\n")
+        print(f"{'='*95}\n")
+
+    def save_index(self, path: str):
+        import pickle
+        with open(path, "wb") as f:
+            pickle.dump({
+                "index": self.index, 
+                "indices": self.indices, 
+                "mapper": self.mapper.to_dict(), 
+                "source": (self.include_source_column, self.source_column_name),
+                "fill": (self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column)
+            }, f)
+
+    @classmethod
+    def load_index(cls, path: str):
+        import pickle
+        with open(path, "rb") as f:
+            d = pickle.load(f)
+        
+        inc_source, source_name = d.get("source", (False, "__source_file__"))
+        
+        return cls(
+            d['index'], 
+            d['indices'], 
+            SchemaMapper.from_dict(d['mapper']), 
+            include_source_column=inc_source,
+            source_column_name=source_name,
+            default_fill_value=d['fill'][0], 
+            fill_values_by_type=d['fill'][1], 
+            fill_values_by_column=d['fill'][2]
+        )

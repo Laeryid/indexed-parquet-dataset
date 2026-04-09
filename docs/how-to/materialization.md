@@ -1,59 +1,59 @@
-# Материализация и экспорт
+# Materialization and Export
 
-Если вы используете сложные трансформации (через `.map()` или `.alias(lambda ...)`), каждое чтение строки будет запускать выполнение вашего Python-кода. На больших данных это может стать "бутылочным горлышком". 
+If you use complex transformations (via `.map()` or `.alias(lambda ...)`), every row read will trigger the execution of your Python code. On large datasets, this can become a bottleneck.
 
-Для решения этой проблемы библиотека предоставляет механизмы **материализации** — записи текущего состояния датасета в новый физический Parquet файл.
+To solve this problem, the library provides **materialization** mechanisms — recording the current state of the dataset into a new physical Parquet file.
 
-## Метод `to_parquet`
+## `to_parquet` Method
 
-Метод `to_parquet` просто сохраняет текущее состояние датасета на диск.
+The `to_parquet` method simply saves the current state of the dataset to disk.
 
 ```python
 dataset.to_parquet("processed_data.parquet")
 ```
 
-### Шардирование (Sharding)
+### Sharding
 
-Если ваш датасет слишком велик для одного файла, вы можете разбить его на части (шарды):
+If your dataset is too large for a single file, you can split it into parts (shards):
 
 ```python
-# Разобьет датасет на файлы по 50,000 строк в директории 'shards/'
+# Splits the dataset into files with 50,000 rows each in the 'shards/' directory
 dataset.to_parquet("shards/", shard_size=50000)
 ```
 
-## Метод `clone` (Рекомендуется)
+## `clone` Method (Recommended)
 
-Метод `clone` делает то же самое, что и `to_parquet`, но возвращает **новый экземпляр** `IndexedParquetDataset`, который сразу смотрит на только что созданный файл.
+The `clone` method does the same as `to_parquet`, but returns a **new instance** of `IndexedParquetDataset` that immediately points to the newly created file.
 
-Это лучший способ "запечь" фильтры и трансформации и продолжить работу с максимальной скоростью (zero-overhead).
+This is the best way to "bake" filters and transformations and continue working with maximum speed (zero-overhead).
 
 ```python
-# 1. Применяем медленные трансформации
+# 1. Apply slow transformations
 ds = (IndexedParquetDataset.from_folder("./raw")
       .filter(heavy_logic)
       .map(complex_transform))
 
-# 2. Клонируем в быстрый файл
+# 2. Clone to a fast file
 fast_ds = ds.clone("baked_data.parquet")
 
-# 3. Теперь fast_ds работает на порядки быстрее
+# 3. Now fast_ds works orders of magnitude faster
 row = fast_ds[0] 
 ```
 
-## Когда стоит делать материализацию?
+## When should you materialize?
 
-1.  **Сложные Python-трансформации**: Если в цепочке есть `.map()` или `.alias(callable)`.
-2.  **Тяжелая фильтрация**: Если вы отфильтровали 90% данных из огромного датасета. Прямой доступ к оставшимся 10% в исходных файлах будет все еще быстрым, но индекс в памяти будет содержать много "дырок", а файловые дескрипторы будут висеть для всех исходных файлов.
-3.  **Подготовка для другого инструмента**: Если вы хотите использовать очищенные данные в другом приложении (например, загрузить в Apache Spark).
-4.  **Финальная версия**: Перед запуском длительного обучения модели на кластере.
+1.  **Complex Python Transformations**: If there is a `.map()` or `.alias(callable)` in the chain.
+2.  **Heavy Filtering**: If you filtered out 90% of data from a huge dataset. Direct access to the remaining 10% in the original files will still be fast, but the in-memory index will contain many "holes", and file descriptors will be held for all original files.
+3.  **Preparation for Another Tool**: If you want to use cleaned data in another application (e.g., load into Apache Spark).
+4.  **Final Version**: Before starting long model training on a cluster.
 
-## Параметры записи
+## Write Parameters
 
-Вы можете настроить размер чанка во время записи:
+You can adjust the chunk size during writing:
 
 ```python
 dataset.to_parquet(
     "output.parquet", 
-    chunk_size=1024 # Сколько строк накапливать в памяти перед сбросом в файл
+    chunk_size=1024 # How many rows to accumulate in memory before flushing to the file
 )
 ```

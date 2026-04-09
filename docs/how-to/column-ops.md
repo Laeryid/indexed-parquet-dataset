@@ -1,42 +1,42 @@
-# Операции с колонками
+# Column Operations
 
-`IndexedParquetDataset` позволяет изменять схему данных виртуально. Вы можете переименовывать колонки, создавать новые на основе существующих или приводить типы — всё это без изменения исходных файлов.
+`IndexedParquetDataset` allows you to change the data schema virtually. You can rename columns, create new ones based on existing ones, or cast types — all without changing the original files.
 
-## Выбор колонок (select_columns)
+## Column Selection (select_columns)
 
-По умолчанию датасет возвращает все найденные колонки. Чтобы ускорить чтение (особенно по сети) и уменьшить потребление памяти, ограничьте выбор:
+By default, the dataset returns all columns found. To speed up reading (especially over the network) and reduce memory consumption, restrict the selection:
 
 ```python
-# Будут читаться и возвращаться только 'id' и 'text'
+# Only 'id' and 'text' will be read and returned
 dataset = dataset.select_columns(["id", "text"])
 ```
 
-## Переименование и псевдонимы (rename / alias)
+## Renaming and Aliases (rename / alias)
 
-Метод `.alias()` — это универсальный инструмент для работы с именами колонок.
+The `.alias()` method is a universal tool for working with column names.
 
-### Простое переименование
+### Simple Renaming
 
 ```python
-# Теперь колонка 'raw_text' будет доступна под именем 'text'
+# Now 'raw_text' column will be available as 'text'
 dataset = dataset.alias("text", "raw_text")
 
-# Синоним для alias
+# Synonym for alias
 dataset = dataset.rename("raw_text", "text")
 ```
 
-### Вычисляемые колонки
+### Calculated Columns
 
-Вы можете создать новую колонку на основе данных строки.
+You can create a new column based on row data.
 
 ```python
-# Создаем колонку 'char_count', которая считает длину текста
+# Create 'char_count' column that counts text length
 dataset = dataset.alias("char_count", lambda row: len(row["text"]))
 ```
 
-## Произвольные преобразования (map)
+## Arbitrary Transformations (map)
 
-Метод `.map()` позволяет изменить всю строку целиком или добавить/удалить несколько колонок за один раз. Это эффективнее нескольких вызовов `.alias()`.
+The `.map()` method allows you to change the entire row or add/remove multiple columns at once. This is more efficient than several `.alias()` calls.
 
 ```python
 def preprocess(row):
@@ -44,36 +44,36 @@ def preprocess(row):
     row["is_long"] = len(row["text"]) > 100
     return row
 
-# Применяем функцию к каждой строке
+# Apply the function to each row
 dataset = dataset.map(preprocess)
 
-# Можно одновременно удалить ненужные колонки
+# Unnecessary columns can be removed at the same time
 dataset = dataset.map(preprocess, remove_columns=["raw_metadata"])
 
-# И явно зафиксировать схему результата (рекомендуется для стабильности)
+# And explicitly fix the result schema (recommended for stability)
 dataset = dataset.map(preprocess, output_schema=["id", "text", "is_long"])
 ```
 
-## Явное приведение типов (cast)
+## Explicit Casting (cast)
 
-Иногда данные в Parquet хранятся в неудобном формате (например, числа записаны как строки). Метод `.cast()` исправляет это.
+Sometimes data in Parquet is stored in an inconvenient format (e.g., numbers stored as strings). The `.cast()` method fixes this.
 
 ```python
-# Приводим колонку к определенному типу
-dataset = dataset.cast("price", "float") # Поддерживаются 'int', 'float', 'str'
+# Cast a column to a specific type
+dataset = dataset.cast("price", "float") # 'int', 'float', 'str' are supported
 
-# Или используем свою функцию для каста
+# Or use your own casting function
 dataset = dataset.cast("timestamp", pd.to_datetime)
 ```
 
-## Порядок применения
+## Application Order
 
-Важно понимать, в каком порядке происходят трансформации при чтении строки:
+It's important to understand the order in which transformations occur when reading a row:
 
-1.  **Чтение из файла**: Считываются только нужные исходные колонки.
-2.  **Маппинг имен**: Применяются глобальные и файлы-специфичные переименования.
-3.  **Вычисляемые колонки**: Выполняются функции, переданные в `.alias(name, callable)`.
-4.  **Row Transforms**: Выполняются функции, переданные в `.map()`.
-5.  **Фильтрация по схеме**: Удаляются колонки, не входящие в финальный `output_schema` или `selected_columns`.
+1.  **Read from file**: Only the required source columns are read.
+2.  **Name mapping**: Global and file-specific renames are applied.
+3.  **Calculated columns**: Functions passed to `.alias(name, callable)` are executed.
+4.  **Row Transforms**: Functions passed to `.map()` are executed.
+5.  **Schema filtering**: Columns not included in the final `output_schema` or `selected_columns` are removed.
 
-Если вам мешает этот порядок (например, вы хотите сделать `.map()` над уже переименованными колонками), вы всегда можете вызвать `.clone()`, чтобы зафиксировать текущее состояние и начать новую цепочку.
+If this order interferes with your goal (e.g., you want to perform `.map()` on already renamed columns), you can always call `.clone()` to fix the current state and start a new chain.

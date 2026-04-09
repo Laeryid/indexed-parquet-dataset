@@ -20,6 +20,10 @@
       
       
         
+          <link rel="alternate" href="./" hreflang="en">
+        
+          <link rel="alternate" href="../../ru/how-to/filtering/" hreflang="ru">
+        
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -27,7 +31,7 @@
     
     
       
-        <title>Фильтрация и выборка - Indexed Parquet Dataset</title>
+        <title>Filtering and Sampling - Indexed Parquet Dataset</title>
       
     
     
@@ -80,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="#filtering-and-sampling" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Фильтрация и выборка
+              Filtering and Sampling
             
           </span>
         </div>
@@ -150,6 +154,32 @@
     
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../../ru/how-to/filtering/" hreflang="ru" class="md-select__link">
+              Русский
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
     
     
       
@@ -233,7 +263,7 @@
   
     
   
-  Главная
+  Home
 
       </a>
     </li>
@@ -252,7 +282,7 @@
           
   
   
-  Обучение
+  Tutorials
 
         </a>
       </li>
@@ -274,7 +304,7 @@
           
   
   
-  Руководства
+  How-to Guides
 
         </a>
       </li>
@@ -294,7 +324,7 @@
           
   
   
-  Справочник API
+  API Reference
 
         </a>
       </li>
@@ -314,7 +344,7 @@
           
   
   
-  Описание
+  Explanation
 
         </a>
       </li>
@@ -381,7 +411,7 @@
   <span class="md-ellipsis">
     
   
-    Главная
+    Home
   
 
     
@@ -426,7 +456,7 @@
   <span class="md-ellipsis">
     
   
-    Обучение
+    Tutorials
   
 
     
@@ -442,7 +472,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Обучение
+    Tutorials
   
 
           </label>
@@ -462,7 +492,7 @@
   <span class="md-ellipsis">
     
   
-    Быстрый старт
+    Quickstart
   
 
     
@@ -546,7 +576,7 @@
   <span class="md-ellipsis">
     
   
-    Руководства
+    How-to Guides
   
 
     
@@ -562,7 +592,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Руководства
+    How-to Guides
   
 
           </label>
@@ -582,7 +612,7 @@
   <span class="md-ellipsis">
     
   
-    Эволюция схем
+    Schema Evolution
   
 
     
@@ -610,7 +640,7 @@
   <span class="md-ellipsis">
     
   
-    Материализация и экспорт
+    Materialization
   
 
     
@@ -647,7 +677,7 @@
   <span class="md-ellipsis">
     
   
-    Фильтрация и выборка
+    Filtering and Sampling
   
 
     
@@ -665,7 +695,7 @@
   <span class="md-ellipsis">
     
   
-    Фильтрация и выборка
+    Filtering and Sampling
   
 
     
@@ -691,10 +721,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#shuffle" class="md-nav__link">
+  <a href="#random-shuffling-shuffle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Случайное перемешивание (shuffle)
+        Random Shuffling (shuffle)
       
     </span>
   </a>
@@ -702,22 +732,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#filter" class="md-nav__link">
+  <a href="#filtering-by-conditions-filter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Фильтрация по условиям (filter)
+        Filtering by Conditions (filter)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Фильтрация по условиям (filter)">
+    <nav class="md-nav" aria-label="Filtering by Conditions (filter)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-pyarrow-side" class="md-nav__link">
+  <a href="#1-server-side-filtering-pyarrow-side" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Серверная фильтрация (PyArrow-side)
+        1. Server-side Filtering (PyArrow-side)
       
     </span>
   </a>
@@ -725,10 +755,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-python-side" class="md-nav__link">
+  <a href="#2-filtering-via-predicate-python-side" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Фильтрация через предикат (Python-side)
+        2. Filtering via Predicate (Python-side)
       
     </span>
   </a>
@@ -736,10 +766,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3" class="md-nav__link">
+  <a href="#3-file-filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Фильтрация по файлам
+        3. File Filtering
       
     </span>
   </a>
@@ -752,22 +782,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
+  <a href="#selection-and-limitation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Выборка и ограничение
+        Selection and Limitation
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Выборка и ограничение">
+    <nav class="md-nav" aria-label="Selection and Limitation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#limit" class="md-nav__link">
+  <a href="#limitation-limit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ограничение количества (limit)
+        Limitation (limit)
       
     </span>
   </a>
@@ -775,10 +805,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sample" class="md-nav__link">
+  <a href="#random-sampling-sample" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Случайная выборка (sample)
+        Random Sampling (sample)
       
     </span>
   </a>
@@ -786,10 +816,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#select" class="md-nav__link">
+  <a href="#index-selection-select" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Выбор по индексам (select)
+        Index Selection (select)
       
     </span>
   </a>
@@ -805,7 +835,7 @@
   <a href="#traintest-split" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Разделение на выборки (Train/Test Split)
+        Train/Test Split
       
     </span>
   </a>
@@ -835,7 +865,7 @@
   <span class="md-ellipsis">
     
   
-    Операции с колонками
+    Column Operations
   
 
     
@@ -888,7 +918,7 @@
   <span class="md-ellipsis">
     
   
-    Справочник API
+    API Reference
   
 
     
@@ -904,7 +934,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Справочник API
+    API Reference
   
 
           </label>
@@ -924,7 +954,7 @@
   <span class="md-ellipsis">
     
   
-    Обзор
+    Overview
   
 
     
@@ -977,7 +1007,7 @@
   <span class="md-ellipsis">
     
   
-    Описание
+    Explanation
   
 
     
@@ -993,7 +1023,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Описание
+    Explanation
   
 
           </label>
@@ -1013,7 +1043,7 @@
   <span class="md-ellipsis">
     
   
-    Архитектура
+    Architecture
   
 
     
@@ -1061,10 +1091,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#shuffle" class="md-nav__link">
+  <a href="#random-shuffling-shuffle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Случайное перемешивание (shuffle)
+        Random Shuffling (shuffle)
       
     </span>
   </a>
@@ -1072,22 +1102,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#filter" class="md-nav__link">
+  <a href="#filtering-by-conditions-filter" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Фильтрация по условиям (filter)
+        Filtering by Conditions (filter)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Фильтрация по условиям (filter)">
+    <nav class="md-nav" aria-label="Filtering by Conditions (filter)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-pyarrow-side" class="md-nav__link">
+  <a href="#1-server-side-filtering-pyarrow-side" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Серверная фильтрация (PyArrow-side)
+        1. Server-side Filtering (PyArrow-side)
       
     </span>
   </a>
@@ -1095,10 +1125,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-python-side" class="md-nav__link">
+  <a href="#2-filtering-via-predicate-python-side" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Фильтрация через предикат (Python-side)
+        2. Filtering via Predicate (Python-side)
       
     </span>
   </a>
@@ -1106,10 +1136,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3" class="md-nav__link">
+  <a href="#3-file-filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Фильтрация по файлам
+        3. File Filtering
       
     </span>
   </a>
@@ -1122,22 +1152,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
+  <a href="#selection-and-limitation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Выборка и ограничение
+        Selection and Limitation
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Выборка и ограничение">
+    <nav class="md-nav" aria-label="Selection and Limitation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#limit" class="md-nav__link">
+  <a href="#limitation-limit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Ограничение количества (limit)
+        Limitation (limit)
       
     </span>
   </a>
@@ -1145,10 +1175,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#sample" class="md-nav__link">
+  <a href="#random-sampling-sample" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Случайная выборка (sample)
+        Random Sampling (sample)
       
     </span>
   </a>
@@ -1156,10 +1186,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#select" class="md-nav__link">
+  <a href="#index-selection-select" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Выбор по индексам (select)
+        Index Selection (select)
       
     </span>
   </a>
@@ -1175,7 +1205,7 @@
   <a href="#traintest-split" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Разделение на выборки (Train/Test Split)
+        Train/Test Split
       
     </span>
   </a>
@@ -1202,58 +1232,58 @@
   
 
 
-<h1 id="_1">Фильтрация и выборка</h1>
-<p><code>IndexedParquetDataset</code> предоставляет несколько способов ограничения и перемешивания данных. Помните, что все методы фильтрации возвращают новый объект датасета (lazy), не копируя сами данные.</p>
-<h2 id="shuffle">Случайное перемешивание (shuffle)</h2>
-<p>Метод <code>.shuffle()</code> перемешивает порядок индексов. Вы можете зафиксировать результат, передав <code>seed</code>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Перемешать всё</span>
+<h1 id="filtering-and-sampling">Filtering and Sampling</h1>
+<p><code>IndexedParquetDataset</code> provides several ways to restrict and shuffle data. Remember that all filtering methods return a new dataset object (lazy) without copying the data itself.</p>
+<h2 id="random-shuffling-shuffle">Random Shuffling (shuffle)</h2>
+<p>The <code>.shuffle()</code> method shuffles the order of indices. You can fix the result by passing a <code>seed</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Shuffle everything</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="filter">Фильтрация по условиям (filter)</h2>
-<p>Метод <code>.filter()</code> — самый мощный инструмент отбора данных. Он поддерживает три режима:</p>
-<h3 id="1-pyarrow-side">1. Серверная фильтрация (PyArrow-side)</h3>
-<p>Этот режим самый быстрый, так как выполняется на уровне C++ через PyArrow до того, как данные попадут в Python.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Фильтрация по точному значению</span>
+<h2 id="filtering-by-conditions-filter">Filtering by Conditions (filter)</h2>
+<p>The <code>.filter()</code> method is the most powerful data selection tool. It supports three modes:</p>
+<h3 id="1-server-side-filtering-pyarrow-side">1. Server-side Filtering (PyArrow-side)</h3>
+<p>This mode is the fastest because it is performed at the C++ level via PyArrow before the data reaches Python.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Filtering by exact value</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">column_conditions</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;active&quot;</span><span class="p">})</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Фильтрация по диапазону (используя кортеж)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Filtering by range (using a tuple)</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">column_conditions</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;&lt;=&quot;</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">})</span>
 </span></code></pre></div>
-<h3 id="2-python-side">2. Фильтрация через предикат (Python-side)</h3>
-<p>Если условий в <code>column_conditions</code> недостаточно, вы можете передать функцию-предикат. Она будет вызвана для каждой строки. Это медленнее, но гибче.</p>
+<h3 id="2-filtering-via-predicate-python-side">2. Filtering via Predicate (Python-side)</h3>
+<p>If the conditions in <code>column_conditions</code> are not enough, you can pass a predicate function. It will be called for each row. This is slower but more flexible.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">predicate</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">100</span> <span class="ow">and</span> <span class="n">x</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
 </span></code></pre></div>
-<h3 id="3">3. Фильтрация по файлам</h3>
-<p>Вы можете оставить данные только из определенных файлов, используя glob-патерны или список путей.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Только файлы из папки 2023 года</span>
+<h3 id="3-file-filtering">3. File Filtering</h3>
+<p>You can keep data only from specific files using glob patterns or a list of paths.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Only files from the 2023 folder</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">path_filter</span><span class="o">=</span><span class="s2">&quot;**/2023/*.parquet&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="_2">Выборка и ограничение</h2>
-<h3 id="limit">Ограничение количества (limit)</h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Взять только первые 1000 строк</span>
+<h2 id="selection-and-limitation">Selection and Limitation</h2>
+<h3 id="limitation-limit">Limitation (limit)</h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Take only the first 1000 rows</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="sample">Случайная выборка (sample)</h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Выбрать 500 случайных строк без повторений</span>
+<h3 id="random-sampling-sample">Random Sampling (sample)</h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Select 500 random rows without replacement</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">123</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="select">Выбор по индексам (select)</h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Оставить только строки с конкретными индексами</span>
+<h3 id="index-selection-select">Index Selection (select)</h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Keep only rows with specific indices</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">])</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Можно использовать слайсы</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="c1"># Каждая вторая строка из первых 500</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Slices can be used</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="c1"># Every second row from the first 500</span>
 </span></code></pre></div>
-<h2 id="traintest-split">Разделение на выборки (Train/Test Split)</h2>
-<p>Метод <code>train_test_split</code> — это "швейцарский нож" для подготовки обучения. Он поддерживает стратификацию!</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Обычный сплит 80/20</span>
+<h2 id="traintest-split">Train/Test Split</h2>
+<p>The <code>train_test_split</code> method is a "Swiss Army knife" for training preparation. It supports stratification!</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Regular 80/20 split</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">train_ds</span><span class="p">,</span> <span class="n">val_ds</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span><span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Сплит со стратификацией по колонке &#39;category&#39;</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># (сохранит пропорции категорий в обеих выборках)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Split with stratification by the &#39;category&#39; column</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># (will preserve category proportions in both samples)</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">train_ds</span><span class="p">,</span> <span class="n">val_ds</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> 
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">stratify_by</span><span class="o">=</span><span class="s2">&quot;category&quot;</span>
@@ -1261,7 +1291,7 @@
 </span></code></pre></div>
 <blockquote>
 <p>[!NOTE]
-Стратификация требует прочтения указанной колонки для <strong>всех</strong> строк датасета в момент вызова метода. На огромных датасетах это может занять некоторое время.</p>
+Stratification requires reading the specified column for <strong>all</strong> rows in the dataset at the time of the method call. On huge datasets, this may take some time.</p>
 </blockquote>
 
 

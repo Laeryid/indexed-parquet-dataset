@@ -1,88 +1,88 @@
-# Фильтрация и выборка
+# Filtering and Sampling
 
-`IndexedParquetDataset` предоставляет несколько способов ограничения и перемешивания данных. Помните, что все методы фильтрации возвращают новый объект датасета (lazy), не копируя сами данные.
+`IndexedParquetDataset` provides several ways to restrict and shuffle data. Remember that all filtering methods return a new dataset object (lazy) without copying the data itself.
 
-## Случайное перемешивание (shuffle)
+## Random Shuffling (shuffle)
 
-Метод `.shuffle()` перемешивает порядок индексов. Вы можете зафиксировать результат, передав `seed`.
+The `.shuffle()` method shuffles the order of indices. You can fix the result by passing a `seed`.
 
 ```python
-# Перемешать всё
+# Shuffle everything
 dataset = dataset.shuffle(seed=42)
 ```
 
-## Фильтрация по условиям (filter)
+## Filtering by Conditions (filter)
 
-Метод `.filter()` — самый мощный инструмент отбора данных. Он поддерживает три режима:
+The `.filter()` method is the most powerful data selection tool. It supports three modes:
 
-### 1. Серверная фильтрация (PyArrow-side)
+### 1. Server-side Filtering (PyArrow-side)
 
-Этот режим самый быстрый, так как выполняется на уровне C++ через PyArrow до того, как данные попадут в Python.
+This mode is the fastest because it is performed at the C++ level via PyArrow before the data reaches Python.
 
 ```python
-# Фильтрация по точному значению
+# Filtering by exact value
 dataset = dataset.filter(column_conditions={"status": "active"})
 
-# Фильтрация по диапазону (используя кортеж)
+# Filtering by range (using a tuple)
 dataset = dataset.filter(column_conditions={
     "score": (">", 0.8),
     "age": ("<=", 30)
 })
 ```
 
-### 2. Фильтрация через предикат (Python-side)
+### 2. Filtering via Predicate (Python-side)
 
-Если условий в `column_conditions` недостаточно, вы можете передать функцию-предикат. Она будет вызвана для каждой строки. Это медленнее, но гибче.
+If the conditions in `column_conditions` are not enough, you can pass a predicate function. It will be called for each row. This is slower but more flexible.
 
 ```python
 dataset = dataset.filter(predicate=lambda x: len(x["text"]) > 100 and x["label"] in [1, 5])
 ```
 
-### 3. Фильтрация по файлам
+### 3. File Filtering
 
-Вы можете оставить данные только из определенных файлов, используя glob-патерны или список путей.
+You can keep data only from specific files using glob patterns or a list of paths.
 
 ```python
-# Только файлы из папки 2023 года
+# Only files from the 2023 folder
 dataset = dataset.filter(path_filter="**/2023/*.parquet")
 ```
 
-## Выборка и ограничение
+## Selection and Limitation
 
-### Ограничение количества (limit)
+### Limitation (limit)
 
 ```python
-# Взять только первые 1000 строк
+# Take only the first 1000 rows
 dataset = dataset.limit(1000)
 ```
 
-### Случайная выборка (sample)
+### Random Sampling (sample)
 
 ```python
-# Выбрать 500 случайных строк без повторений
+# Select 500 random rows without replacement
 dataset = dataset.sample(500, seed=123)
 ```
 
-### Выбор по индексам (select)
+### Index Selection (select)
 
 ```python
-# Оставить только строки с конкретными индексами
+# Keep only rows with specific indices
 dataset = dataset.select([0, 10, 50, 100])
 
-# Можно использовать слайсы
-dataset = dataset.select(slice(0, 500, 2)) # Каждая вторая строка из первых 500
+# Slices can be used
+dataset = dataset.select(slice(0, 500, 2)) # Every second row from the first 500
 ```
 
-## Разделение на выборки (Train/Test Split)
+## Train/Test Split
 
-Метод `train_test_split` — это "швейцарский нож" для подготовки обучения. Он поддерживает стратификацию!
+The `train_test_split` method is a "Swiss Army knife" for training preparation. It supports stratification!
 
 ```python
-# Обычный сплит 80/20
+# Regular 80/20 split
 train_ds, val_ds = dataset.train_test_split(test_size=0.2, seed=42)
 
-# Сплит со стратификацией по колонке 'category'
-# (сохранит пропорции категорий в обеих выборках)
+# Split with stratification by the 'category' column
+# (will preserve category proportions in both samples)
 train_ds, val_ds = dataset.train_test_split(
     test_size=0.2, 
     stratify_by="category"
@@ -90,4 +90,4 @@ train_ds, val_ds = dataset.train_test_split(
 ```
 
 > [!NOTE]
-> Стратификация требует прочтения указанной колонки для **всех** строк датасета в момент вызова метода. На огромных датасетах это может занять некоторое время.
+> Stratification requires reading the specified column for **all** rows in the dataset at the time of the method call. On huge datasets, this may take some time.

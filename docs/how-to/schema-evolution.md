@@ -1,32 +1,32 @@
-# Эволюция схем (Schema Evolution)
+# Schema Evolution
 
-Одна из самых мощных возможностей `indexed-parquet-dataset` — это работа с наборами данных, структура которых менялась со временем. Это происходит, когда в процессе сбора данных добавляются новые признаки, удаляются старые или меняются названия колонок.
+One of the most powerful features of `indexed-parquet-dataset` is its ability to work with datasets whose structure has changed over time. This happens when new features are added, old ones are removed, or column names are changed during the data collection process.
 
-## Проблема: Разные схемы в файлах
+## Problem: Different Schemas in Files
 
-Обычно при попытке объединить файлы с разными схемами библиотеки (вроде Pandas или PyArrow) выдают ошибку или требуют ручной нормализации. 
+Typically, when trying to combine files with different schemas, libraries (like Pandas or PyArrow) throw an error or require manual normalization.
 
-`IndexedParquetDataset` создает **виртуальную объединенную схему**, автоматически подставляя значения для отсутствующих колонок.
+`IndexedParquetDataset` creates a **virtual merged schema**, automatically substituting values for missing columns.
 
-## Работа с пропусками
+## Handling Gaps
 
-Когда колонка есть в одном файле, но отсутствует в другом, библиотека должна вернуть какое-то значение для строк "пустого" файла.
+When a column is present in one file but missing in another, the library must return some value for the rows of the "empty" file.
 
-### Автоматическое заполнение (auto_fill)
+### Automatic Filling (auto_fill)
 
-Самый простой способ — включить `auto_fill`. Он заполнит пропуски разумными значениями (0 для чисел, пустая строка для текста, False для bool).
+The easiest way is to enable `auto_fill`. It will fill gaps with reasonable defaults (0 for numbers, an empty string for text, False for bool).
 
 ```python
 ds = IndexedParquetDataset.from_folder("data", auto_fill=True)
 ```
 
-### Иерархия заполнения значений
+### Fill Value Hierarchy
 
-Вы можете настроить заполнение очень точечно. Библиотека ищет значение в следующем порядке:
+You can fine-tune the filling very precisely. The library looks for a value in the following order:
 
-1.  `fill_values_by_column`: Значение для конкретной колонки.
-2.  `fill_values_by_type`: Значение для определенного типа данных PyArrow.
-3.  `default_fill_value`: Глобальный запасной вариант (по умолчанию `None`).
+1.  `fill_values_by_column`: Value for a specific column.
+2.  `fill_values_by_type`: Value for a specific PyArrow data type.
+3.  `default_fill_value`: Global fallback (default is `None`).
 
 ```python
 ds = IndexedParquetDataset.from_folder(
@@ -37,21 +37,21 @@ ds = IndexedParquetDataset.from_folder(
 )
 ```
 
-## Переименование и маппинг
+## Renaming and Mapping
 
-Если колонка сменила имя (например, с `label` на `target`), вы можете нормализовать её двумя способами:
+If a column has changed its name (e.g., from `label` to `target`), you can normalize it in two ways:
 
-### Глобальное переименование (rename)
+### Global Renaming (rename)
 
-Заставляет библиотеку считать, что `label` теперь называется `target` во всех файлах.
+Forces the library to assume that `label` is now called `target` in all files.
 
 ```python
 ds = ds.rename("label", "target")
 ```
 
-### Маппинг для конкретного файла (set_file_mapping)
+### File-Specific Mapping (set_file_mapping)
 
-Если только в одном конкретном файле колонка называется странно, вы можете исправить это точечно:
+If only in one specific file the column name is unusual, you can fix it locally:
 
 ```python
 ds = ds.set_file_mapping(
@@ -60,17 +60,17 @@ ds = ds.set_file_mapping(
 )
 ```
 
-## Объединение разных датасетов (merge)
+## Merging Different Datasets (merge)
 
-Если у вас есть два разных `IndexedParquetDataset`, вы можете объединить их в один. Библиотека автоматически:
-1. Вычислит общую схему.
-2. Выполнит **upcasting** типов (например, если в одном датасете колонка `id` это `int32`, а в другом `int64`, итоговая будет `int64`).
-3. Удалит дубликаты строк (те, что ссылаются на один и тот же файл и физический индекс строки).
+If you have two different `IndexedParquetDataset` objects, you can merge them into one. The library automatically:
+1. Calculates a common schema.
+2. Performs type **upcasting** (e.g., if one dataset's `id` column is `int32` and the other's is `int64`, the resulting one will be `int64`).
+3. Removes row duplicates (those referring to the same file and physical row index).
 
 ```python
 combined_ds = ds1.merge(ds2)
 ```
 
-## Вложенные структуры (Structs)
+## Nested Structures (Structs)
 
-Библиотека умеет рекурсивно заходить внутрь колонок типа `Struct`. Если внутри структуры не хватает поля, оно будет заполнено согласно правилам выше. Это критически важно для PyTorch, который не умеет собирать батчи, содержащие `None` на любом уровне вложенности.
+The library can recursively descend into columns of type `Struct`. If a field is missing inside a structure, it will be filled according to the rules above. This is critical for PyTorch, which cannot assemble batches containing `None` at any nesting level.

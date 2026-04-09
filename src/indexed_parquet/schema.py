@@ -57,10 +57,8 @@ class SchemaMapper:
         for target_name, transform in self.transforms.items():
             try:
                 mapped_data[target_name] = transform(mapped_data)
-            except Exception as e:
+            except Exception:
                 pass
-                
-        return mapped_data
                 
         return mapped_data
 

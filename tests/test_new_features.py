@@ -20,6 +20,7 @@ def evolution_data_dir(tmp_path):
     return str(test_dir)
 
 def test_schema_evolution(evolution_data_dir):
+    """[POSITIVE TEST] Verifies that concatenating datasets with different schemas works via auto-casting."""
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
     assert len(dataset) == 4
     
@@ -39,10 +40,12 @@ def test_schema_evolution(evolution_data_dir):
     assert row3["val"] is None
 
 def test_strict_schema(evolution_data_dir):
+    """[NEGATIVE TEST] Verifies that strict_schema=True properly blocks inconsistent schemas."""
     with pytest.raises(ValueError, match="Schema mismatch"):
         IndexedParquetDataset.from_folder(evolution_data_dir, strict_schema=True)
 
 def test_stratified_split(tmp_path):
+    """[POSITIVE TEST] Verifies stratified splitting logic."""
     test_dir = tmp_path / "strat_data"
     test_dir.mkdir()
     
@@ -67,6 +70,7 @@ def test_stratified_split(tmp_path):
     assert label_counts[1] == 4
 
 def test_file_mapping_exclusive(evolution_data_dir):
+    """[POSITIVE TEST] Verifies mapping a column that is exclusive to one file."""
     # CASE A: Column 'score' exists ONLY in file2.
     # When we remap it, 'score' should disappear from global schema.
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir, pattern="file2.parquet")
@@ -84,6 +88,7 @@ def test_file_mapping_exclusive(evolution_data_dir):
     assert "score" not in row
 
 def test_file_mapping_partial(evolution_data_dir, tmp_path):
+    """[POSITIVE TEST] Verifies mapping a column that exists in multiple files."""
     # CASE B: Column 'id' exists in BOTH file1 and file2.
     # When we remap it ONLY in file2, 'id' should remain in global schema.
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
@@ -109,6 +114,7 @@ def test_file_mapping_partial(evolution_data_dir, tmp_path):
     assert row_f2["id"] is None
 
 def test_filter_optimized_path(evolution_data_dir):
+    """[POSITIVE TEST] Verifies path-based filtering optimization."""
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
     
     # Filter only file1
@@ -120,6 +126,7 @@ def test_filter_optimized_path(evolution_data_dir):
         assert filtered[i]["score"] is None
 
 def test_filter_optimized_column(evolution_data_dir):
+    """[POSITIVE TEST] Verifies column-condition-based filtering optimization."""
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
     
     # Equality
@@ -139,6 +146,7 @@ def test_filter_optimized_column(evolution_data_dir):
     assert filtered[0]["id"] == 3
 
 def test_filter_optimized_combined(evolution_data_dir):
+    """[POSITIVE TEST] Verifies combined path, column, and lambda filtering."""
     dataset = IndexedParquetDataset.from_folder(evolution_data_dir)
     
     # Path + Column + Predicate

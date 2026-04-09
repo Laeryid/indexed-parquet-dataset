@@ -1,8 +1,7 @@
 import os
 import numpy as np
-import torch
 import warnings
-from torch.utils.data import Dataset
+from collections import OrderedDict
 from typing import List, Dict, Any, Optional, Callable, Union
 import pyarrow.parquet as pq
 import pyarrow as pa
@@ -11,12 +10,20 @@ import fnmatch
 from .indexer import scan_directory, BaseIndex, FileInfo
 from .schema import SchemaMapper
 
+try:
+    import torch
+    from torch.utils.data import Dataset
+    _TORCH_AVAILABLE = True
+except ImportError:
+    Dataset = object  # type: ignore[assignment,misc]
+    _TORCH_AVAILABLE = False
+
 class IndexedParquetDataset(Dataset):
     """High-performance Parquet dataset with O(1) random access and Schema Evolution support."""
     
     def __init__(
-        self, 
-        index: BaseIndex, 
+        self,
+        index: BaseIndex,
         indices: Optional[np.ndarray] = None,
         mapper: Optional[SchemaMapper] = None,
         include_source_column: bool = False,
@@ -24,10 +31,12 @@ class IndexedParquetDataset(Dataset):
         default_fill_value: Any = None,
         fill_values_by_type: Optional[Dict[str, Any]] = None,
         fill_values_by_column: Optional[Dict[str, Any]] = None,
-        auto_fill: bool = False
+        auto_fill: bool = False,
+        max_open_files: int = 128,
+        _type_casts: Optional[Dict[str, type]] = None,
     ):
         """Initializes the dataset.
-        
+
         Args:
             index: A BaseIndex object containing dataset metadata.
             indices: Array of global indices to expose (for subsetting/shuffling).
@@ -38,32 +47,47 @@ class IndexedParquetDataset(Dataset):
             fill_values_by_type: Dict mapping PyArrow types to default values.
             fill_values_by_column: Dict mapping column names to default values.
             auto_fill: If True, automatically populates fill_values_by_type with defaults.
+                Note: auto_fill does NOT overwrite values already present in fill_values_by_type.
+            max_open_files: Maximum number of simultaneously open Parquet file handles (LRU cache).
+            _type_casts: Internal. Per-column cast functions used by concat upcasting.
         """
         self.index = index
         self.mapper = mapper or SchemaMapper()
         self.include_source_column = include_source_column
         self.source_column_name = source_column_name
-        
+
         self.default_fill_value = default_fill_value
         self.fill_values_by_type = fill_values_by_type or {}
-        
+
         if auto_fill:
             self._apply_auto_fill()
-            
+
         self.fill_values_by_column = fill_values_by_column or {}
-        self._type_casts: Dict[str, type] = {} # Internal use for concat upcasting
-        
+        self._type_casts: Dict[str, type] = _type_casts or {}  # Internal: concat upcasting
+
         # indices allows for shuffling, filtering, and subsets without modifying the base index
         if indices is not None:
             self.indices = indices
         else:
             self.indices = np.arange(self.index.total_rows)
-            
+
         # Cumulative row counts for fast lookups
         self.file_offsets = np.cumsum([0] + [f.num_rows for f in self.index.files])
-        
-        # Cache for open file handles (Lazy Loading)
-        self._file_handles: Dict[int, pq.ParquetFile] = {}
+
+        # LRU cache for open file handles (Lazy Loading)
+        self.max_open_files = max_open_files
+        self._file_handles: OrderedDict[int, pq.ParquetFile] = OrderedDict()
+
+    def __getstate__(self):
+        """Returns the state for pickling, excluding non-picklable file handles."""
+        state = self.__dict__.copy()
+        state['_file_handles'] = {} # Don't pickle open handles
+        return state
+
+    def __setstate__(self, state):
+        """Restores the state after unpickling."""
+        self.__dict__.update(state)
+        self._file_handles = {} # Re-initialize empty cache
 
     @classmethod
     def from_folder(
@@ -119,6 +143,15 @@ class IndexedParquetDataset(Dataset):
     def __len__(self) -> int:
         return len(self.indices)
 
+    def __repr__(self) -> str:
+        return (
+            f"IndexedParquetDataset("
+            f"rows={len(self):,}, "
+            f"files={len(self.index.files)}, "
+            f"columns={len(self.schema)}"
+            f")"
+        )
+
     def _get_file_and_local_idx(self, global_idx: int) -> tuple[int, int]:
         actual_idx = self.indices[global_idx]
         file_idx = np.searchsorted(self.file_offsets, actual_idx, side='right') - 1
@@ -126,9 +159,12 @@ class IndexedParquetDataset(Dataset):
         return int(file_idx), int(local_idx)
 
     def _get_file_handle(self, file_idx: int) -> pq.ParquetFile:
-        if file_idx not in self._file_handles:
-            file_path = self.index.files[file_idx].path
-            self._file_handles[file_idx] = pq.ParquetFile(file_path)
+        if file_idx in self._file_handles:
+            self._file_handles.move_to_end(file_idx)  # LRU touch
+        else:
+            self._file_handles[file_idx] = pq.ParquetFile(self.index.files[file_idx].path)
+            if len(self._file_handles) > self.max_open_files:
+                self._file_handles.popitem(last=False)  # evict least recently used
         return self._file_handles[file_idx]
 
     def _get_fill_value(self, column_name: str) -> Any:
@@ -149,6 +185,29 @@ class IndexedParquetDataset(Dataset):
             return self.fill_values_by_type[col_type]
             
         return self.default_fill_value
+
+    def _deep_fill_nones(self, value: Any, fill: Any) -> Any:
+        """Recursively replaces None values inside nested dicts and lists.
+
+        PyArrow struct columns with null-typed fields (e.g. ``seed: null``)
+        yield Python dicts containing ``None`` values at arbitrary depth.
+        ``default_collate`` cannot handle ``NoneType`` anywhere in a batch,
+        so we must sanitize the entire nested structure.
+
+        Args:
+            value: The value returned by PyArrow (may be dict, list, scalar or None).
+            fill:  The replacement value to use wherever None is found.
+
+        Returns:
+            A sanitized copy of *value* with all Nones replaced by *fill*.
+        """
+        if value is None:
+            return fill
+        if isinstance(value, dict):
+            return {k: self._deep_fill_nones(v, fill) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._deep_fill_nones(v, fill) for v in value]
+        return value
 
     def _apply_auto_fill(self):
         """Populates fill_values_by_type with default values for common types."""
@@ -223,8 +282,16 @@ class IndexedParquetDataset(Dataset):
                     if col in self._type_casts and val is not None:
                         try:
                             val = self._type_casts[col](val)
-                        except: pass
-                        
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Recursively sanitize nested dicts/lists (e.g. struct columns
+                    # with null-typed fields like `seed: null` in PyArrow schemas).
+                    # default_collate cannot handle NoneType anywhere in the tree.
+                    if isinstance(val, (dict, list)):
+                        fill = self._get_fill_value(col)
+                        val = self._deep_fill_nones(val, fill)
+
                     mapped_item[col] = val
                 
                 local_idx_to_result[l_idx_in_rg + rg_start_offset] = mapped_item
@@ -273,22 +340,22 @@ class IndexedParquetDataset(Dataset):
         return self.select(slice(0, n))
 
     def _clone_with_indices(self, new_indices: np.ndarray) -> 'IndexedParquetDataset':
-        ds = IndexedParquetDataset(
+        return IndexedParquetDataset(
             self.index, new_indices, self.mapper,
             self.include_source_column, self.source_column_name,
-            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
+            max_open_files=self.max_open_files,
+            _type_casts=self._type_casts.copy(),
         )
-        ds._type_casts = self._type_casts.copy()
-        return ds
 
     def _clone_with_mapper(self, new_mapper: SchemaMapper) -> 'IndexedParquetDataset':
-        ds = IndexedParquetDataset(
+        return IndexedParquetDataset(
             self.index, self.indices.copy(), new_mapper,
             self.include_source_column, self.source_column_name,
-            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
+            max_open_files=self.max_open_files,
+            _type_casts=self._type_casts.copy(),
         )
-        ds._type_casts = self._type_casts.copy()
-        return ds
 
 
     def train_test_split(
@@ -393,9 +460,6 @@ class IndexedParquetDataset(Dataset):
         """Renames a column."""
         return self.alias(new_name, old_name)
 
-    def rename_column(self, old_name: str, new_name: str) -> 'IndexedParquetDataset':
-        """Alias for rename(). for backward compatibility."""
-        return self.rename(old_name, new_name)
 
     def cast(self, column: str, target_type: Union[type, str, Callable]) -> 'IndexedParquetDataset':
         """Changes the type of a column using an alias transformation.
@@ -416,9 +480,12 @@ class IndexedParquetDataset(Dataset):
 
         def transform(row):
             val = row.get(column)
-            if val is None: return None
-            try: return cast_fn(val)
-            except: return val
+            if val is None:
+                return None
+            try:
+                return cast_fn(val)
+            except (ValueError, TypeError):
+                return val
             
         return self.alias(column, transform)
 
@@ -555,16 +622,20 @@ class IndexedParquetDataset(Dataset):
                 
         new_index = BaseIndex(new_files, new_total_rows, new_all_columns, new_column_types)
         new_indices = np.concatenate([self.indices, other.indices + self.index.total_rows])
-        
-        new_mapper = self.mapper.merge(other.mapper, [f.path for f in self.index.files], [f.path for f in other.index.files])
-        
-        result = IndexedParquetDataset(
+
+        new_mapper = self.mapper.merge(
+            other.mapper,
+            [f.path for f in self.index.files],
+            [f.path for f in other.index.files],
+        )
+
+        return IndexedParquetDataset(
             new_index, new_indices, new_mapper,
             self.include_source_column, self.source_column_name,
-            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column
+            self.default_fill_value, self.fill_values_by_type, self.fill_values_by_column,
+            max_open_files=self.max_open_files,
+            _type_casts=type_casts,
         )
-        result._type_casts = type_casts
-        return result
 
     def get_supported_types(self) -> Dict[str, Any]:
         """Returns types and their current defaults."""
@@ -576,50 +647,25 @@ class IndexedParquetDataset(Dataset):
 
     def generate_collate_fn(self, on_none: str = 'raise') -> Callable:
         """Returns a DataLoader-compatible collate function with robust None handling.
-        
+
         Args:
             on_none: Strategy for handling None values.
                 'raise' (default): Raises a descriptive TypeError.
                 'drop': Drops samples containing None from the batch.
-                'fill': Replaces None with 0/"" based on auto-fill logic (if possible).
+                'fill': Replaces None with 0/"" based on fill_values configuration.
+
+        Raises:
+            ImportError: If PyTorch is not installed.
         """
-        def collate_fn(batch):
-            from torch.utils.data._utils.collate import default_collate
-            
-            clean_batch = batch
-            if on_none in ('drop', 'fill'):
-                new_batch = []
-                for item in batch:
-                    has_none = any(v is None for v in item.values())
-                    if has_none:
-                        if on_none == 'drop':
-                            continue
-                        else: # fill
-                            item = item.copy()
-                            for k, v in item.items():
-                                if v is None:
-                                    item[k] = self._get_fill_value(k)
-                    new_batch.append(item)
-                clean_batch = new_batch
-
-            if not clean_batch:
-                return {}
-
-            try:
-                return default_collate(clean_batch)
-            except TypeError as e:
-                if 'NoneType' in str(e):
-                    # Identify the culprit
-                    for i, item in enumerate(batch):
-                        for k, v in item.items():
-                            if v is None:
-                                raise TypeError(
-                                    f"Batch collation failed: column '{k}' contains None at batch index {i}.\n"
-                                    f"PyTorch DataLoader cannot handle None values.\n"
-                                    f"Fix: Set 'auto_fill=True' or provide 'fill_values' when initializing IndexedParquetDataset."
-                                ) from None
-                raise e
-        return collate_fn
+        if not _TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for generate_collate_fn. "
+                "Install it with: pip install torch"
+            )
+        # Pre-compute fill map: {column_name -> fill_value} for all known columns.
+        # This avoids storing a reference to the full dataset inside CollateHandler.
+        fill_map = {col: self._get_fill_value(col) for col in self.schema}
+        return CollateHandler(fill_map, on_none)
 
     def info(self) -> None:
         """Prints summary statistics and metadata for the dataset."""
@@ -735,3 +781,52 @@ class IndexedParquetDataset(Dataset):
             fill_values_by_type=d['fill'][1], 
             fill_values_by_column=d['fill'][2]
         )
+
+class CollateHandler:
+    """Picklable helper for batch collation.
+
+    Stores only a pre-computed fill_map dict instead of a reference to the
+    full dataset, so DataLoader workers (num_workers > 0) receive a minimal
+    copy rather than the entire dataset index.
+    """
+
+    def __init__(self, fill_map: Dict[str, Any], on_none: str):
+        self.fill_map = fill_map  # {column_name -> fill_value}
+        self.on_none = on_none
+
+    def __call__(self, batch):
+        from torch.utils.data._utils.collate import default_collate
+
+        clean_batch = batch
+        if self.on_none in ('drop', 'fill'):
+            new_batch = []
+            for item in batch:
+                has_none = any(v is None for v in item.values())
+                if has_none:
+                    if self.on_none == 'drop':
+                        continue
+                    else:  # fill
+                        item = item.copy()
+                        for k, v in item.items():
+                            if v is None:
+                                item[k] = self.fill_map.get(k)
+                new_batch.append(item)
+            clean_batch = new_batch
+
+        if not clean_batch:
+            return {}
+
+        try:
+            return default_collate(clean_batch)
+        except TypeError as e:
+            if 'NoneType' in str(e):
+                for i, item in enumerate(batch):
+                    for k, v in item.items():
+                        if v is None:
+                            raise TypeError(
+                                f"Batch collation failed: column '{k}' contains None at batch index {i}.\n"
+                                f"PyTorch DataLoader cannot handle None values.\n"
+                                f"Fix: Set 'auto_fill=True' or provide 'fill_values' when initializing IndexedParquetDataset."
+                            ) from None
+            raise e
+

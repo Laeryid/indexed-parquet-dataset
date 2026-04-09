@@ -30,6 +30,7 @@ def multi_file_dir(tmp_path):
     return str(test_dir)
 
 def test_source_file_column(multi_file_dir):
+    """[POSITIVE TEST] Verifies inclusion of the source file path column."""
     # Enabled
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     dataset.include_source_column = True
@@ -44,6 +45,7 @@ def test_source_file_column(multi_file_dir):
     assert os.path.isabs(row["__source_file__"])
 
 def test_source_file_column_custom_name(multi_file_dir):
+    """[POSITIVE TEST] Verifies custom naming for the source file path column."""
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     dataset.include_source_column = True
     dataset.source_column_name = "path_to_source"
@@ -54,6 +56,7 @@ def test_source_file_column_custom_name(multi_file_dir):
     assert "__source_file__" not in row
 
 def test_path_filter_single_glob(multi_file_dir):
+    """[POSITIVE TEST] Verifies filtering by a single glob pattern."""
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     
     # All files matching 202601
@@ -69,6 +72,7 @@ def test_path_filter_single_glob(multi_file_dir):
         assert "202601" in filtered.index.files[f_idx].path
 
 def test_path_filter_multi_glob(multi_file_dir):
+    """[POSITIVE TEST] Verifies filtering by multiple glob patterns."""
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     
     # Specific files by different masks
@@ -82,6 +86,7 @@ def test_path_filter_multi_glob(multi_file_dir):
     assert set(ids) == {1, 3}
 
 def test_path_filter_and_column_filter(multi_file_dir):
+    """[POSITIVE TEST] Verifies combined path and column filtering."""
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     
     filtered = dataset.filter(
@@ -92,6 +97,7 @@ def test_path_filter_and_column_filter(multi_file_dir):
     assert filtered[0]["id"] == 2
 
 def test_persistence_of_settings(multi_file_dir, tmp_path):
+    """[POSITIVE TEST] Verifies that custom settings are preserved during operations and serialization."""
     dataset = IndexedParquetDataset.from_folder(multi_file_dir)
     dataset.include_source_column = True
     dataset.source_column_name = "src"

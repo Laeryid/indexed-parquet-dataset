@@ -9,3 +9,14 @@ build/
 *.egg-info/
 .DS_Store
 plans/
+
+# Temporary test/demo data directories
+data/
+data_test/
+demo_data/
+repro_data/
+repro_issue/
+test_data_fix/
+test_data_info/
+test_verify/
+scratch/

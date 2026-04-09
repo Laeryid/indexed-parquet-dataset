@@ -24,6 +24,7 @@ def type_mismatch_dir(tmp_path):
     return str(d)
 
 def test_concat_type_upcasting(type_mismatch_dir):
+    """[POSITIVE TEST] Verifies automatic type upcasting during concatenation."""
     ds1 = IndexedParquetDataset.from_folder(type_mismatch_dir, pattern="f1.parquet")
     ds2 = IndexedParquetDataset.from_folder(type_mismatch_dir, pattern="f2.parquet")
     
@@ -46,6 +47,7 @@ def hierarchy_dir(tmp_path):
     return str(d)
 
 def test_fill_values_hierarchy(hierarchy_dir):
+    """[POSITIVE TEST] Verifies hierarchical fill value resolution (Default < Type < Column)."""
     # Setup dataset with 3 levels of fill values
     # Default < By Type < By Column
     ds = IndexedParquetDataset.from_folder(
@@ -84,6 +86,7 @@ def test_fill_values_hierarchy(hierarchy_dir):
     # (Actually it won't be in schema unless we alias it or it's in index)
 
 def test_cast_method(hierarchy_dir):
+    """[POSITIVE TEST] Verifies explicit column type casting."""
     ds = IndexedParquetDataset.from_folder(hierarchy_dir)
     # Cast int id to string
     cast_ds = ds.cast("id", str)
@@ -96,6 +99,7 @@ def test_cast_method(hierarchy_dir):
     assert cast_ds_float[0]["id"] == 1.0
 
 def test_info_smoke(type_mismatch_dir, capsys):
+    """[POSITIVE TEST] Smoke test for info() method."""
     ds = IndexedParquetDataset.from_folder(type_mismatch_dir)
     ds.info()
     captured = capsys.readouterr()
@@ -109,6 +113,7 @@ def test_info_smoke(type_mismatch_dir, capsys):
     assert "Rows (Visible/Total):    0/" in captured.out
 
 def test_to_parquet_and_materialization(type_mismatch_dir, tmp_path):
+    """[POSITIVE TEST] Verifies dataset materialization to a single parquet file."""
     dataset = IndexedParquetDataset.from_folder(type_mismatch_dir)
     # Apply some logic
     processed = dataset.alias("id_plus_1", lambda x: x["id"] + 1).filter(lambda x: x["id"] > 1)
@@ -125,6 +130,7 @@ def test_to_parquet_and_materialization(type_mismatch_dir, tmp_path):
     assert list(df["id_plus_1"]) == [3.0, 4.5, 5.5]
 
 def test_dataloader_integration(type_mismatch_dir):
+    """[POSITIVE TEST] Verifies basic PyTorch DataLoader integration with type upcasting."""
     dataset = IndexedParquetDataset.from_folder(type_mismatch_dir)
     # Since we have strings/floats, we might need a custom collate or just check basic
     # default_collate handles dicts of tensors/numbers
@@ -142,6 +148,7 @@ def test_dataloader_integration(type_mismatch_dir):
     assert isinstance(batch["id"], torch.Tensor)
 
 def test_complex_fluent_chaining(type_mismatch_dir):
+    """[POSITIVE TEST] Verifies complex fluent API chaining (alias -> cast -> filter -> shuffle -> limit)."""
     # From folder -> alias -> cast -> filter -> shuffle -> limit
     result = (
         IndexedParquetDataset.from_folder(type_mismatch_dir)

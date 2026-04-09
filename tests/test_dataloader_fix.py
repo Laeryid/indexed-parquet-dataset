@@ -23,6 +23,7 @@ class TestDataLoaderFix(unittest.TestCase):
         pq.write_table(table, "test_data_fix/data.parquet")
 
     def test_auto_fill(self):
+        """[POSITIVE TEST] Verifies that auto_fill=True correctly fills missing values."""
         print("\nChecking auto_fill=True...")
         ds = IndexedParquetDataset.from_folder("test_data_fix", auto_fill=True)
         loader = DataLoader(ds, batch_size=3)
@@ -35,6 +36,7 @@ class TestDataLoaderFix(unittest.TestCase):
         print("auto_fill=True: OK")
 
     def test_collate_raise(self):
+        """[NEGATIVE TEST] Verifies that 'on_none=raise' correctly raises TypeError on Nones."""
         print("\nChecking collate on_none='raise'...")
         ds = IndexedParquetDataset.from_folder("test_data_fix", auto_fill=False)
         collate_fn = ds.generate_collate_fn(on_none='raise')
@@ -45,6 +47,7 @@ class TestDataLoaderFix(unittest.TestCase):
         print("collate on_none='raise': OK")
 
     def test_collate_drop(self):
+        """[POSITIVE TEST] Verifies that 'on_none=drop' correctly filters out None items."""
         print("\nChecking collate on_none='drop'...")
         ds = IndexedParquetDataset.from_folder("test_data_fix", auto_fill=False)
         collate_fn = ds.generate_collate_fn(on_none='drop')
@@ -57,6 +60,7 @@ class TestDataLoaderFix(unittest.TestCase):
         print("collate on_none='drop': OK")
 
     def test_collate_fill(self):
+        """[POSITIVE TEST] Verifies that 'on_none=fill' correctly replaces Nones with fill values."""
         print("\nChecking collate on_none='fill'...")
         ds = IndexedParquetDataset.from_folder("test_data_fix", auto_fill=False)
         collate_fn = ds.generate_collate_fn(on_none='fill')

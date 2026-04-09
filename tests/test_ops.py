@@ -22,6 +22,7 @@ def dataset2(tmp_path):
     return IndexedParquetDataset.from_folder(str(d))
 
 def test_copy(dataset1):
+    """[POSITIVE TEST] Verifies in-memory copy operation independence."""
     ds_copy = dataset1.copy()
     assert ds_copy is not dataset1
     assert np.array_equal(ds_copy.indices, dataset1.indices)
@@ -33,7 +34,8 @@ def test_copy(dataset1):
     assert len(dataset1) == 2
 
 def test_clone(dataset1, tmp_path):
-    dataset1 = dataset1.rename_column("a", "new_a")
+    """[POSITIVE TEST] Verifies dataset cloning (materialization) to a new parquet file."""
+    dataset1 = dataset1.rename("a", "new_a")
     clone_file = str(tmp_path / "clone.parquet")
     cloned_ds = dataset1.clone(clone_file)
     
@@ -47,6 +49,7 @@ def test_clone(dataset1, tmp_path):
     assert list(df["new_a"]) == [1, 2]
 
 def test_concat_simple(dataset1, dataset2):
+    """[POSITIVE TEST] Verifies simple concatenation of two datasets with overlapping schemas."""
     ds_concat = dataset1.concat(dataset2)
     assert len(ds_concat) == 4
     
@@ -61,10 +64,11 @@ def test_concat_simple(dataset1, dataset2):
     assert ds_concat[2]["c"] == 30
 
 def test_concat_with_aliases(dataset1, dataset2):
+    """[POSITIVE TEST] Verifies concatenation of datasets with complex alias mappings."""
     # ds1: a -> alias1
     # ds2: a -> alias2
-    ds1 = dataset1.rename_column("a", "alias1")
-    ds2 = dataset2.rename_column("a", "alias2")
+    ds1 = dataset1.rename("a", "alias1")
+    ds2 = dataset2.rename("a", "alias2")
     
     ds_concat = ds1.concat(ds2)
     
@@ -81,6 +85,7 @@ def test_concat_with_aliases(dataset1, dataset2):
     assert ds_concat[2]["alias1"] is None
 
 def test_clone_shuffled(dataset1, tmp_path):
+    """[POSITIVE TEST] Verifies that cloning a shuffled dataset preserves the shuffled order in the file."""
     shuffled = dataset1.shuffle(seed=42)
     clone_file = str(tmp_path / "shuffled.parquet")
     shuffled.clone(clone_file) # Returns dataset, but we check the file

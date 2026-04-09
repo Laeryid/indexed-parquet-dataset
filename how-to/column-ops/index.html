@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/how-to/schema-evolution/">
+        <link rel="canonical" href="https://your-username.github.io/indexed-parquet-dataset/how-to/column-ops/">
       
       
-        <link rel="prev" href="../../tutorials/deep_learning/">
+        <link rel="prev" href="../filtering/">
       
       
-        <link rel="next" href="../materialization/">
+        <link rel="next" href="../../reference/api/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Эволюция схем - Indexed Parquet Dataset</title>
+        <title>Операции с колонками - Indexed Parquet Dataset</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#schema-evolution" class="md-skip">
+        <a href="#_1" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Эволюция схем
+              Операции с колонками
             
           </span>
         </div>
@@ -270,7 +270,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../schema-evolution/" class="md-tabs__link">
           
   
   
@@ -572,37 +572,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Эволюция схем
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../schema-evolution/" class="md-nav__link">
         
   
   
@@ -618,137 +591,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Проблема: Разные схемы в файлах
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Работа с пропусками
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Работа с пропусками">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Автоматическое заполнение (auto_fill)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Иерархия заполнения значений
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -814,10 +656,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../column-ops/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Операции с колонками
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -833,6 +702,109 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#select_columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Выбор колонок (select_columns)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rename-alias" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Переименование и псевдонимы (rename / alias)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Переименование и псевдонимы (rename / alias)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Простое переименование
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Вычисляемые колонки
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Произвольные преобразования (map)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Явное приведение типов (cast)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Порядок применения
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1050,10 +1022,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
+  <a href="#select_columns" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Проблема: Разные схемы в файлах
+        Выбор колонок (select_columns)
       
     </span>
   </a>
@@ -1061,22 +1033,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
+  <a href="#rename-alias" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Работа с пропусками
+        Переименование и псевдонимы (rename / alias)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Работа с пропусками">
+    <nav class="md-nav" aria-label="Переименование и псевдонимы (rename / alias)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#auto_fill" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Автоматическое заполнение (auto_fill)
+        Простое переименование
       
     </span>
   </a>
@@ -1087,7 +1059,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Иерархия заполнения значений
+        Вычисляемые колонки
       
     </span>
   </a>
@@ -1096,6 +1068,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Произвольные преобразования (map)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Явное приведение типов (cast)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1103,57 +1097,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Переименование и маппинг
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Переименование и маппинг">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Глобальное переименование (rename)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#set_file_mapping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Маппинг для конкретного файла (set_file_mapping)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#merge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Объединение разных датасетов (merge)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#structs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Вложенные структуры (Structs)
+        Порядок применения
       
     </span>
   </a>
@@ -1180,53 +1124,61 @@
   
 
 
-<h1 id="schema-evolution">Эволюция схем (Schema Evolution)</h1>
-<p>Одна из самых мощных возможностей <code>indexed-parquet-dataset</code> — это работа с наборами данных, структура которых менялась со временем. Это происходит, когда в процессе сбора данных добавляются новые признаки, удаляются старые или меняются названия колонок.</p>
-<h2 id="_1">Проблема: Разные схемы в файлах</h2>
-<p>Обычно при попытке объединить файлы с разными схемами библиотеки (вроде Pandas или PyArrow) выдают ошибку или требуют ручной нормализации. </p>
-<p><code>IndexedParquetDataset</code> создает <strong>виртуальную объединенную схему</strong>, автоматически подставляя значения для отсутствующих колонок.</p>
-<h2 id="_2">Работа с пропусками</h2>
-<p>Когда колонка есть в одном файле, но отсутствует в другом, библиотека должна вернуть какое-то значение для строк "пустого" файла.</p>
-<h3 id="auto_fill">Автоматическое заполнение (auto_fill)</h3>
-<p>Самый простой способ — включить <code>auto_fill</code>. Он заполнит пропуски разумными значениями (0 для чисел, пустая строка для текста, False для bool).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">auto_fill</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<h1 id="_1">Операции с колонками</h1>
+<p><code>IndexedParquetDataset</code> позволяет изменять схему данных виртуально. Вы можете переименовывать колонки, создавать новые на основе существующих или приводить типы — всё это без изменения исходных файлов.</p>
+<h2 id="select_columns">Выбор колонок (select_columns)</h2>
+<p>По умолчанию датасет возвращает все найденные колонки. Чтобы ускорить чтение (особенно по сети) и уменьшить потребление памяти, ограничьте выбор:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Будут читаться и возвращаться только &#39;id&#39; и &#39;text&#39;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select_columns</span><span class="p">([</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">])</span>
 </span></code></pre></div>
-<h3 id="_3">Иерархия заполнения значений</h3>
-<p>Вы можете настроить заполнение очень точечно. Библиотека ищет значение в следующем порядке:</p>
+<h2 id="rename-alias">Переименование и псевдонимы (rename / alias)</h2>
+<p>Метод <code>.alias()</code> — это универсальный инструмент для работы с именами колонок.</p>
+<h3 id="_2">Простое переименование</h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Теперь колонка &#39;raw_text&#39; будет доступна под именем &#39;text&#39;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="s2">&quot;raw_text&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Синоним для alias</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;raw_text&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="_3">Вычисляемые колонки</h3>
+<p>Вы можете создать новую колонку на основе данных строки.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Создаем колонку &#39;char_count&#39;, которая считает длину текста</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;char_count&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">]))</span>
+</span></code></pre></div>
+<h2 id="map">Произвольные преобразования (map)</h2>
+<p>Метод <code>.map()</code> позволяет изменить всю строку целиком или добавить/удалить несколько колонок за один раз. Это эффективнее нескольких вызовов <code>.alias()</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">preprocess</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">row</span><span class="p">[</span><span class="s2">&quot;is_long&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">100</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="n">row</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Применяем функцию к каждой строке</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">preprocess</span><span class="p">)</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Можно одновременно удалить ненужные колонки</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">preprocess</span><span class="p">,</span> <span class="n">remove_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;raw_metadata&quot;</span><span class="p">])</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="c1"># И явно зафиксировать схему результата (рекомендуется для стабильности)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">preprocess</span><span class="p">,</span> <span class="n">output_schema</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="s2">&quot;is_long&quot;</span><span class="p">])</span>
+</span></code></pre></div>
+<h2 id="cast">Явное приведение типов (cast)</h2>
+<p>Иногда данные в Parquet хранятся в неудобном формате (например, числа записаны как строки). Метод <code>.cast()</code> исправляет это.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Приводим колонку к определенному типу</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">)</span> <span class="c1"># Поддерживаются &#39;int&#39;, &#39;float&#39;, &#39;str&#39;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Или используем свою функцию для каста</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="_4">Порядок применения</h2>
+<p>Важно понимать, в каком порядке происходят трансформации при чтении строки:</p>
 <ol>
-<li><code>fill_values_by_column</code>: Значение для конкретной колонки.</li>
-<li><code>fill_values_by_type</code>: Значение для определенного типа данных PyArrow.</li>
-<li><code>default_fill_value</code>: Глобальный запасной вариант (по умолчанию <code>None</code>).</li>
+<li><strong>Чтение из файла</strong>: Считываются только нужные исходные колонки.</li>
+<li><strong>Маппинг имен</strong>: Применяются глобальные и файлы-специфичные переименования.</li>
+<li><strong>Вычисляемые колонки</strong>: Выполняются функции, переданные в <code>.alias(name, callable)</code>.</li>
+<li><strong>Row Transforms</strong>: Выполняются функции, переданные в <code>.map()</code>.</li>
+<li><strong>Фильтрация по схеме</strong>: Удаляются колонки, не входящие в финальный <code>output_schema</code> или <code>selected_columns</code>.</li>
 </ol>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">IndexedParquetDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;data&quot;</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_fill_value</span><span class="o">=</span><span class="s2">&quot;N/A&quot;</span><span class="p">,</span>  
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">fill_values_by_type</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;int64&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;double&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">fill_values_by_column</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;priority&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="_4">Переименование и маппинг</h2>
-<p>Если колонка сменила имя (например, с <code>label</code> на <code>target</code>), вы можете нормализовать её двумя способами:</p>
-<h3 id="rename">Глобальное переименование (rename)</h3>
-<p>Заставляет библиотеку считать, что <code>label</code> теперь называется <code>target</code> во всех файлах.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="set_file_mapping">Маппинг для конкретного файла (set_file_mapping)</h3>
-<p>Если только в одном конкретном файле колонка называется странно, вы можете исправить это точечно:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">set_file_mapping</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="s2">&quot;data/v1/bad_file.parquet&quot;</span><span class="p">,</span> 
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="p">{</span><span class="s2">&quot;old_name&quot;</span><span class="p">:</span> <span class="s2">&quot;correct_name&quot;</span><span class="p">}</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="merge">Объединение разных датасетов (merge)</h2>
-<p>Если у вас есть два разных <code>IndexedParquetDataset</code>, вы можете объединить их в один. Библиотека автоматически:
-1. Вычислит общую схему.
-2. Выполнит <strong>upcasting</strong> типов (например, если в одном датасете колонка <code>id</code> это <code>int32</code>, а в другом <code>int64</code>, итоговая будет <code>int64</code>).
-3. Удалит дубликаты строк (те, что ссылаются на один и тот же файл и физический индекс строки).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">combined_ds</span> <span class="o">=</span> <span class="n">ds1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">ds2</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="structs">Вложенные структуры (Structs)</h2>
-<p>Библиотека умеет рекурсивно заходить внутрь колонок типа <code>Struct</code>. Если внутри структуры не хватает поля, оно будет заполнено согласно правилам выше. Это критически важно для PyTorch, который не умеет собирать батчи, содержащие <code>None</code> на любом уровне вложенности.</p>
+<p>Если вам мешает этот порядок (например, вы хотите сделать <code>.map()</code> над уже переименованными колонками), вы всегда можете вызвать <code>.clone()</code>, чтобы зафиксировать текущее состояние и начать новую цепочку.</p>
 
 
 

@@ -1,4 +1,15 @@
+<p align="center">
+  <img src="logo.png" width="400" alt="Indexed Parquet Dataset Logo">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-0.1.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-blue.svg" alt="Python Version">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-green.svg" alt="License">
+</p>
+
 # Indexed Parquet Dataset
+
 
 High-performance O(1) random access indexer for Parquet datasets in PyTorch and Python.
 

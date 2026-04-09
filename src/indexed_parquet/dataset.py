@@ -559,3 +559,73 @@ class IndexedParquetDataset(Dataset):
             mapper=SchemaMapper.from_dict(state["mapper"]),
             transform=state["transform"]
         )
+
+    def info(self) -> None:
+        """Prints summary statistics and metadata for the dataset."""
+        total_indexed_rows = self.index.total_rows
+        visible_rows = len(self)
+        num_files = len(self.index.files)
+        
+        # Calculate storage size
+        total_bytes = 0
+        for f in self.index.files:
+            if os.path.exists(f.path):
+                total_bytes += os.path.getsize(f.path)
+        
+        if total_bytes < 1024**2:
+            storage_str = f"{total_bytes / 1024:.2f} KB"
+        elif total_bytes < 1024**3:
+            storage_str = f"{total_bytes / (1024**2):.2f} MB"
+        else:
+            storage_str = f"{total_bytes / (1024**3):.2f} GB"
+            
+        print(f"\n{'='*70}")
+        print(f" IndexedParquetDataset Summary")
+        print(f"{'='*70}")
+        print(f" Files:           {num_files:<10}  |  Storage Size:  {storage_str}")
+        print(f" Total Rows:      {total_indexed_rows:<10,}  |  Visible Rows:  {visible_rows:,} ({visible_rows/total_indexed_rows:.1%})")
+        print(f"{'-'*70}")
+        
+        # Files Table
+        print("\nFiles in Index:")
+        file_header = f"{'#':<3} | {'Rows':>12} | {'Groups':>6} | {'Path':<}"
+        print(file_header)
+        print("-" * 70)
+        for i, f in enumerate(self.index.files):
+            basename = os.path.basename(f.path)
+            display_path = (f"...{f.path[-45:]}" if len(f.path) > 45 else f.path)
+            print(f"{i:<3} | {f.num_rows:>12,} | {len(f.row_groups):>6} | {display_path}")
+            
+        # Columns Table
+        print("\nColumn Statistics:")
+        col_header = f"{'Column':<25} | {'Files':>6} | {'Presence':>8} | {'Est. Rows':>12} | {'Coverage'}"
+        print(col_header)
+        print("-" * 70)
+        
+        visible_schema = self.schema
+        for col in visible_schema:
+            files_present = 0
+            rows_present = 0
+            
+            for f in self.index.files:
+                src_col = self.mapper.get_source_column(col, f.path)
+                if src_col in f.columns:
+                    files_present += 1
+                    rows_present += f.num_rows
+            
+            presence_pct = files_present / num_files
+            coverage_pct = rows_present / total_indexed_rows
+            
+            # Truncate column name if too long
+            col_display = (col[:22] + "...") if len(col) > 25 else col
+            print(f"{col_display:<25} | {files_present:>6} | {presence_pct:>8.1%} | {rows_present:>12,} | {coverage_pct:>8.1%}")
+            
+        # Mappings
+        if self.mapper.mapping or self.mapper.file_mappings:
+            print("\nActive Mappings:")
+            if self.mapper.mapping:
+                print(f"  Global Aliases: {self.mapper.mapping}")
+            if self.mapper.file_mappings:
+                print(f"  File-specific overrides active for {len(self.mapper.file_mappings)} files")
+        
+        print(f"{'='*70}\n")

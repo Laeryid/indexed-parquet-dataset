@@ -27,7 +27,7 @@
 ## Быстрый пример
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Создаем датасет из папки
 ds = IndexedParquetDataset.from_folder("path/to/data")

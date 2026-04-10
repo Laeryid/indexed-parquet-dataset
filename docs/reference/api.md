@@ -6,7 +6,7 @@ This section provides detailed documentation for the main classes and methods of
 
 The main class for indexing and data access. Inherits from `torch.utils.data.Dataset` (if PyTorch is installed).
 
-::: indexed_parquet.dataset.IndexedParquetDataset
+::: indexed_parquet_dataset.dataset.IndexedParquetDataset
     options:
       members:
         - from_folder
@@ -37,16 +37,16 @@ The main class for indexing and data access. Inherits from `torch.utils.data.Dat
 
 A helper class for correct batch collection in `DataLoader`. Use it via the `ds.generate_collate_fn()` method.
 
-::: indexed_parquet.dataset.CollateHandler
+::: indexed_parquet_dataset.dataset.CollateHandler
 
 ## SchemaMapper
 
 The internal class responsible for schema transformations and calculated columns.
 
-::: indexed_parquet.schema.SchemaMapper
+::: indexed_parquet_dataset.schema.SchemaMapper
 
 ## BaseIndex
 
 The class that stores index metadata (file offsets, row counts).
 
-::: indexed_parquet.indexer.BaseIndex
+::: indexed_parquet_dataset.indexer.BaseIndex

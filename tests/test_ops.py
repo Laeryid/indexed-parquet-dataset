@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import pyarrow.parquet as pq
-from indexed_parquet import IndexedParquetDataset, SchemaMapper
+from indexed_parquet_dataset import IndexedParquetDataset, SchemaMapper
 
 @pytest.fixture
 def dataset1(tmp_path):

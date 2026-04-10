@@ -16,7 +16,7 @@ Below is a complete example: from initialization to the training loop.
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # 1. Initialization with automatic gap handling
 # auto_fill=True fills missing values with defaults (0 for numbers, "" for strings)

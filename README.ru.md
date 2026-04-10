@@ -76,7 +76,7 @@ pip install "indexed-parquet-dataset[torch]"
 ### Базовая инициализация
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Сканирует папку и строит глобальный индекс строк
 ds = IndexedParquetDataset.from_folder("./path/to/data")

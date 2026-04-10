@@ -16,7 +16,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # 1. Инициализация с автоматической обработкой пропусков
 # auto_fill=True заполнит None значениями по умолчанию (0 для чисел, "" для строк)

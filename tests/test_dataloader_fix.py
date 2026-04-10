@@ -8,7 +8,7 @@ import unittest
 
 # Add src to path
 sys.path.append(os.path.abspath("src"))
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 class TestDataLoaderFix(unittest.TestCase):
     @classmethod

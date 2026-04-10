@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import shutil
 
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 @pytest.fixture(scope="module")
 def sample_data_dir():

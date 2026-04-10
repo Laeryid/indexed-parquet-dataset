@@ -19,7 +19,7 @@ data/
 Используйте метод `from_folder`. Он сканирует директорию, индексирует файлы и создает объект датасета.
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Сканируем рекурсивно все .parquet файлы
 dataset = IndexedParquetDataset.from_folder("data", pattern="*.parquet", recursive=True)

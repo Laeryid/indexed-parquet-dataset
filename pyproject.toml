@@ -40,5 +40,5 @@ pythonpath = ["src"]
 where = ["src"]
 
 [tool.setuptools_scm]
-version_file = "src/indexed_parquet/_version.py"
+version_file = "src/indexed_parquet_dataset/_version.py"
 local_scheme = "no-local-version"

@@ -2,7 +2,7 @@ import os
 import pytest
 import pandas as pd
 import numpy as np
-from indexed_parquet import IndexedParquetDataset, scan_directory
+from indexed_parquet_dataset import IndexedParquetDataset, scan_directory
 
 @pytest.fixture
 def evolution_data_dir(tmp_path):

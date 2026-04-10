@@ -76,7 +76,7 @@ pip install "indexed-parquet-dataset[torch]"
 ### Basic Initialization
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Scans the folder and builds a global row index
 ds = IndexedParquetDataset.from_folder("./path/to/data")

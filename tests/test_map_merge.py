@@ -2,7 +2,7 @@ import os
 import pytest
 import pandas as pd
 import numpy as np
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 @pytest.fixture
 def complex_ds(tmp_path):

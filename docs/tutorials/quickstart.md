@@ -19,7 +19,7 @@ data/
 Use the `from_folder` method. It scans the directory, indexes the files, and creates a dataset object.
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Recursively scan all .parquet files
 dataset = IndexedParquetDataset.from_folder("data", pattern="*.parquet", recursive=True)

@@ -17,7 +17,7 @@ import pyarrow.parquet as pq
 import torch
 from torch.utils.data import DataLoader
 
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 
 @pytest.fixture()

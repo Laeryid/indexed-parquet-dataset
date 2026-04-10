@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 import pyarrow as pa
 import pyarrow.parquet as pq
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 @pytest.fixture
 def type_mismatch_dir(tmp_path):

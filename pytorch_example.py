@@ -8,7 +8,7 @@ import shutil
 
 # Add src to path
 sys.path.append(os.path.abspath("src"))
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 def setup_dummy_data(path="./data"):
     if os.path.exists(path):

@@ -27,7 +27,7 @@ Standard libraries (pandas, pyarrow) work great for reading an entire file, but 
 ## Quick Example
 
 ```python
-from indexed_parquet import IndexedParquetDataset
+from indexed_parquet_dataset import IndexedParquetDataset
 
 # Create dataset from folder
 ds = IndexedParquetDataset.from_folder("path/to/data")

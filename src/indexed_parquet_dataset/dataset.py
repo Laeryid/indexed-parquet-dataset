@@ -734,36 +734,54 @@ class IndexedParquetDataset(Dataset):
                 return os.path.join(effective_path, f"part_{shard_idx:04d}.parquet")
             return effective_path
 
+        def write_table_with_shards(table):
+            nonlocal writer, rows_in_current_shard, shard_idx
+            
+            if not shard_size:
+                if writer is None:
+                    writer = pq.ParquetWriter(get_shard_path(), table.schema)
+                writer.write_table(table)
+                rows_in_current_shard += len(table)
+                return
+
+            offset = 0
+            while offset < len(table):
+                # If current shard is full, move to next
+                if rows_in_current_shard >= shard_size:
+                    if writer: writer.close()
+                    shard_idx += 1
+                    writer = None
+                    rows_in_current_shard = 0
+                
+                remaining_in_shard = shard_size - rows_in_current_shard
+                to_write = min(len(table) - offset, remaining_in_shard)
+                
+                chunk = table.slice(offset, to_write)
+                if writer is None:
+                    writer = pq.ParquetWriter(get_shard_path(), chunk.schema)
+                
+                writer.write_table(chunk)
+                rows_in_current_shard += to_write
+                offset += to_write
+
         total_rows = len(self)
         pbar = tqdm(total=total_rows, desc="Writing Parquet", disable=not progress)
         
         try:
             if not optimize_by_reorder:
                 # Original slow path (preserves order)
-                effective_chunk_size = min(chunk_size, shard_size) if shard_size else chunk_size
+                effective_chunk_size = chunk_size # No need to min() with shard_size anymore
                 for i in range(0, total_rows, effective_chunk_size):
                     batch_indices = list(range(i, min(i + effective_chunk_size, total_rows)))
                     batch_data = self[batch_indices]
                     if not batch_data: continue
                     
                     table = pa.Table.from_pylist(batch_data)
-                    
-                    if shard_size and rows_in_current_shard >= shard_size:
-                        if writer: writer.close()
-                        shard_idx += 1
-                        writer = None
-                        rows_in_current_shard = 0
-                    
-                    if writer is None:
-                        writer = pq.ParquetWriter(get_shard_path(), table.schema)
-                    
-                    writer.write_table(table)
-                    rows_in_current_shard += len(batch_data)
+                    write_table_with_shards(table)
                     pbar.update(len(batch_data))
             else:
                 # Optimized path: Group by (file, RG) to minimize reads
-                # 1. Map current indices to (file_idx, rg_idx, local_idx)
-                # Grouping by file_idx then rg_idx
+                # ...
                 from collections import defaultdict
                 file_to_rg_to_rows = defaultdict(lambda: defaultdict(list))
                 
@@ -780,14 +798,13 @@ class IndexedParquetDataset(Dataset):
 
                 # 2. Iterate and write
                 buffer = []
-                schema = None
                 
                 # Sort files and RGs for linear access
                 for f_idx in sorted(file_to_rg_to_rows.keys()):
                     pf = self._get_file_handle(f_idx)
                     file_info = self.index.files[f_idx]
                     
-                    # Columns optimization (same as in _read_rows_from_file)
+                    # Columns optimization
                     requested_columns = None
                     if self.selected_columns is not None and not self.mapper.transforms:
                         requested_columns = []
@@ -802,13 +819,10 @@ class IndexedParquetDataset(Dataset):
                         rows_in_rg = rgs[rg_idx]
                         table = pf.read_row_group(rg_idx, columns=requested_columns)
                         
-                        # Process individual rows from this RG
                         for l_idx_in_rg in rows_in_rg:
-                            # Extract row (same logic as in _read_rows_from_file but integrated)
                             row_dict = table.slice(l_idx_in_rg, 1).to_pydict()
                             item = {k: v[0] for k, v in row_dict.items()}
                             
-                            # Standard processing: Fill -> Source -> Mapping -> Transmute -> Cast
                             for col in self.index.all_columns:
                                 if col not in item: item[col] = self._get_fill_value(self.mapper.mapping.get(col, col))
                             if self.include_source_column: item[self.source_column_name] = file_info.path
@@ -824,42 +838,20 @@ class IndexedParquetDataset(Dataset):
                                 if isinstance(val, (dict, list)):
                                     val = self._deep_fill_nones(val, self._get_fill_value(col))
                                 mapped_item[col] = val
-                                    
                             for row_fn in self.mapper.row_transforms:
                                 mapped_item = row_fn(mapped_item)
                             
                             buffer.append(mapped_item)
                             
-                            # Flush buffer if full
                             if len(buffer) >= chunk_size:
                                 out_table = pa.Table.from_pylist(buffer)
-                                if schema is None: schema = out_table.schema
-                                
-                                if shard_size and rows_in_current_shard >= shard_size:
-                                    if writer: writer.close()
-                                    shard_idx += 1
-                                    writer = None
-                                    rows_in_current_shard = 0
-                                
-                                if writer is None:
-                                    writer = pq.ParquetWriter(get_shard_path(), schema)
-                                
-                                writer.write_table(out_table)
-                                rows_in_current_shard += len(buffer)
+                                write_table_with_shards(out_table)
                                 pbar.update(len(buffer))
                                 buffer = []
 
-                # Final flush
                 if buffer:
                     out_table = pa.Table.from_pylist(buffer)
-                    if schema is None: schema = out_table.schema
-                    if shard_size and rows_in_current_shard >= shard_size:
-                        if writer: writer.close()
-                        shard_idx += 1
-                        writer = None
-                    if writer is None:
-                        writer = pq.ParquetWriter(get_shard_path(), schema)
-                    writer.write_table(out_table)
+                    write_table_with_shards(out_table)
                     pbar.update(len(buffer))
         finally:
             if writer: writer.close()

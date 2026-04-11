@@ -718,7 +718,7 @@ class IndexedParquetDataset(Dataset):
             progress: Whether to show a progress bar.
         """
         # Ensure .parquet extension for single file output
-        effective_path = path
+        effective_path = str(path)
         if not shard_size and not effective_path.lower().endswith('.parquet'):
             effective_path += '.parquet'
 
@@ -865,7 +865,7 @@ class IndexedParquetDataset(Dataset):
     ) -> 'IndexedParquetDataset':
         """Materializes all computations and returns a new dataset instance."""
         # to_parquet will append .parquet if needed, but we need to know the effective path
-        effective_path = path
+        effective_path = str(path)
         if not effective_path.lower().endswith('.parquet'):
             effective_path += '.parquet'
             

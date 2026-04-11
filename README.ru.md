@@ -21,7 +21,7 @@
 - 🔄 **Schema Evolution**: Работа с наборами данных, где файлы имеют разные схемы, отсутствующие колонки или переименованные поля.
 - 📦 **Lazy Loading**: Файлы открываются только при запросе данных. Эффективный LRU-кэш дескрипторов.
 - 🔥 **PyTorch Integration**: Нативная поддержка `torch.utils.data.Dataset`, включая генерацию адаптивного `collate_fn`.
-- 🛠️ **Fluent API**: Цепочки вызовов: `shuffle`, `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
+- 🛠️ **Fluent API**: Цепочки вызовов: `shuffle` (глобальный или оптимизированный), `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
 - 💾 **Index Persistence**: Сохранение и быстрая загрузка индекса из файла.
 - 🏗️ **Materialization**: "Запекание" всех трансформаций в новые Parquet файлы через `clone()`.
 
@@ -93,7 +93,7 @@ sample = ds[999_999]
 ```python
 ds = (IndexedParquetDataset.from_folder("./data")
       .filter(lambda x: x["score"] > 0.5)
-      .shuffle(seed=42)
+      .shuffle(seed=42, rg_buffer=32) # Оптимизированное перемешивание для быстрого I/O
       .alias("text_len", lambda x: len(x["text"]))
       .limit(10000))
 

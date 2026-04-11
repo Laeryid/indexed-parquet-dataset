@@ -360,11 +360,80 @@ class IndexedParquetDataset(Dataset):
                 results[pos] = res
         return results # type: ignore
 
-    def shuffle(self, seed: Optional[int] = None) -> 'IndexedParquetDataset':
+    def shuffle(self, seed: Optional[int] = None, rg_buffer: Optional[int] = None) -> 'IndexedParquetDataset':
+        """Shuffles the dataset indices.
+        
+        Args:
+            seed: Random seed for reproducibility.
+            rg_buffer: If provided, enables locality-aware shuffling. Instead of a global 
+                shuffle, it shuffles row groups and then shuffles rows within a window 
+                of `rg_buffer` row groups. This significantly Improves I/O performance 
+                by reducing the number of row groups that need to be read/cached 
+                simultaneously.
+                
+        Returns:
+            A new IndexedParquetDataset instance with shuffled indices.
+        """
         rng = np.random.default_rng(seed)
-        new_indices = self.indices.copy()
-        rng.shuffle(new_indices)
-        return self._clone_with_indices(new_indices)
+        
+        if rg_buffer is None:
+            new_indices = self.indices.copy()
+            rng.shuffle(new_indices)
+            return self._clone_with_indices(new_indices)
+
+        if rg_buffer < 1:
+            raise ValueError("rg_buffer must be at least 1")
+
+        # 1. Map current active indices to their respective row groups
+        actual_indices = self.indices
+        
+        # Find which file each index belongs to
+        file_indices = np.searchsorted(self.file_offsets, actual_indices, side='right') - 1
+        
+        # Grouping by (file_idx, rg_idx)
+        # Note: dict preserves insertion order of first appearance in Python 3.7+
+        from collections import defaultdict
+        rg_to_indices = defaultdict(list)
+        
+        # Pre-calculate RG cumulative boundaries for each file for speed
+        file_rg_bounds = [np.cumsum([0] + f.row_groups) for f in self.index.files]
+        
+        # Process indices by file to use vector searchsorted logic
+        unique_f_indices = np.unique(file_indices)
+        for f_idx in unique_f_indices:
+            f_mask = (file_indices == f_idx)
+            f_global_indices = actual_indices[f_mask]
+            f_local_indices = f_global_indices - self.file_offsets[f_idx]
+            
+            # Map local row index to row group index within this file
+            f_rg_indices = np.searchsorted(file_rg_bounds[f_idx], f_local_indices, side='right') - 1
+            
+            # Group global indices by RG
+            for rg_idx, global_idx in zip(f_rg_indices, f_global_indices):
+                rg_to_indices[(f_idx, rg_idx)].append(global_idx)
+        
+        # 2. Get the list of all unique row group IDs present in current indices
+        rg_keys = list(rg_to_indices.keys())
+        # Shuffle the sequence of row groups themselves
+        rng.shuffle(rg_keys)
+        
+        # 3. Flatten and shuffle within windows of rg_buffer
+        final_indices = []
+        for i in range(0, len(rg_keys), rg_buffer):
+            window_slice = rg_keys[i : i + rg_buffer]
+            window_pool = []
+            for key in window_slice:
+                window_pool.extend(rg_to_indices[key])
+            
+            # Shuffle rows within the current window of row groups
+            window_pool_arr = np.array(window_pool)
+            rng.shuffle(window_pool_arr)
+            final_indices.append(window_pool_arr)
+            
+        if not final_indices:
+            return self._clone_with_indices(np.array([], dtype=int))
+            
+        return self._clone_with_indices(np.concatenate(final_indices))
 
     def select(self, range_or_indices: Union[slice, List[int], np.ndarray]) -> 'IndexedParquetDataset':
         new_indices = self.indices[range_or_indices]

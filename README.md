@@ -21,7 +21,7 @@ It is specifically optimized for Deep Learning (PyTorch), consumes minimal memor
 - 🔄 **Schema Evolution**: Work with datasets where files have different schemas, missing columns, or renamed fields.
 - 📦 **Lazy Loading**: Files are opened only when data is requested. Features an efficient LRU handle cache.
 - 🔥 **PyTorch Integration**: Native support for `torch.utils.data.Dataset`, including adaptive `collate_fn` generation.
-- 🛠️ **Fluent API**: Method chaining: `shuffle`, `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
+- 🛠️ **Fluent API**: Method chaining: `shuffle` (global or locality-aware), `filter`, `alias`, `split`, `limit`, `rename`, `cast`, `map`.
 - 💾 **Index Persistence**: Save and fast-load the index from a file.
 - 🏗️ **Materialization**: "Bake" all transformations into new Parquet files via `clone()`.
 
@@ -93,7 +93,7 @@ sample = ds[999_999]
 ```python
 ds = (IndexedParquetDataset.from_folder("./data")
       .filter(lambda x: x["score"] > 0.5)
-      .shuffle(seed=42)
+      .shuffle(seed=42, rg_buffer=32) # Locality-aware shuffle for best I/O performance
       .alias("text_len", lambda x: len(x["text"]))
       .limit(10000))
 

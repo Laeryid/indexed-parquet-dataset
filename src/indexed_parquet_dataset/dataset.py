@@ -699,6 +699,89 @@ class IndexedParquetDataset(Dataset):
             
         return self.alias(column, transform)
 
+    def get_arrow_schema(self) -> pa.Schema:
+        """Derives the PyArrow schema for the dataset from source files and metadata.
+        
+        This is used during materialize operations (to_parquet) to ensure consistent 
+        types even if some batches contain only None values (avoiding null-type inference).
+        """
+        fields = []
+        file_schemas = {}
+        
+        # Mapping from common type strings to Arrow types
+        # Note: mapping 'float' and 'double' to pa.float64()
+        basic_types = {
+            'int64': pa.int64(),
+            'int32': pa.int32(),
+            'float64': pa.float64(),
+            'double': pa.float64(),
+            'float': pa.float64(),
+            'float32': pa.float32(),
+            'string': pa.string(),
+            'bool': pa.bool_(),
+            'binary': pa.binary(),
+            'timestamp[ns]': pa.timestamp('ns'),
+            'timestamp[us]': pa.timestamp('us'),
+            'timestamp[ms]': pa.timestamp('ms'),
+            'timestamp[s]': pa.timestamp('s'),
+        }
+        
+        for col in self.schema:
+            dataType = None
+            
+            # 1. Check current index column types (already accounts for merge upcasts)
+            # Find the original column name if mapped
+            src_col = None
+            for k, v in self.mapper.mapping.items():
+                if v == col:
+                    src_col = k
+                    break
+            if src_col is None: src_col = col
+            
+            type_str = self.index.column_types.get(src_col)
+            if type_str and type_str.lower() in basic_types:
+                dataType = basic_types[type_str.lower()]
+            
+            # 2. If not a basic type or not found in index, look in source files
+            if dataType is None:
+                for f_info in self.index.files:
+                    if src_col in f_info.columns:
+                        if f_info.path not in file_schemas:
+                            try:
+                                file_schemas[f_info.path] = pq.read_schema(f_info.path)
+                            except: continue
+                        f_schema = file_schemas.get(f_info.path)
+                        if f_schema and src_col in f_schema.names:
+                            dataType = f_schema.field(src_col).type
+                            break
+            
+            # 3. Virtual or computed column?
+            if dataType is not None:
+                fields.append(pa.field(col, dataType))
+            elif col == self.source_column_name:
+                fields.append(pa.field(col, pa.string()))
+            else:
+                # Computed or missing column. Sample rows to infer type.
+                inferred_type = None
+                sample_size = min(100, len(self))
+                if sample_size > 0:
+                    try:
+                        sample_vals = [self[i].get(col) for i in range(sample_size)]
+                        non_nones = [v for v in sample_vals if v is not None]
+                        if non_nones:
+                            # Use ALL non-nones in sample to infer the BROADEST type
+                            inferred_type = pa.array(non_nones).type
+                        else:
+                            inferred_type = pa.string()
+                    except:
+                        inferred_type = pa.string()
+                else:
+                    inferred_type = pa.string()
+                
+                fields.append(pa.field(col, inferred_type or pa.string()))
+        
+        return pa.schema(fields)
+
     def to_parquet(
         self, 
         path: str, 
@@ -729,6 +812,9 @@ class IndexedParquetDataset(Dataset):
         rows_in_current_shard = 0
         shard_idx = 0
         
+        # Derive target schema upfront to avoid type inference issues
+        target_schema = self.get_arrow_schema()
+        
         def get_shard_path():
             if shard_size:
                 return os.path.join(effective_path, f"part_{shard_idx:04d}.parquet")
@@ -739,7 +825,7 @@ class IndexedParquetDataset(Dataset):
             
             if not shard_size:
                 if writer is None:
-                    writer = pq.ParquetWriter(get_shard_path(), table.schema)
+                    writer = pq.ParquetWriter(get_shard_path(), target_schema)
                 writer.write_table(table)
                 rows_in_current_shard += len(table)
                 return
@@ -758,7 +844,7 @@ class IndexedParquetDataset(Dataset):
                 
                 chunk = table.slice(offset, to_write)
                 if writer is None:
-                    writer = pq.ParquetWriter(get_shard_path(), chunk.schema)
+                    writer = pq.ParquetWriter(get_shard_path(), target_schema)
                 
                 writer.write_table(chunk)
                 rows_in_current_shard += to_write
@@ -770,13 +856,13 @@ class IndexedParquetDataset(Dataset):
         try:
             if not optimize_by_reorder:
                 # Original slow path (preserves order)
-                effective_chunk_size = chunk_size # No need to min() with shard_size anymore
+                effective_chunk_size = chunk_size 
                 for i in range(0, total_rows, effective_chunk_size):
                     batch_indices = list(range(i, min(i + effective_chunk_size, total_rows)))
                     batch_data = self[batch_indices]
                     if not batch_data: continue
                     
-                    table = pa.Table.from_pylist(batch_data)
+                    table = pa.Table.from_pylist(batch_data, schema=target_schema)
                     write_table_with_shards(table)
                     pbar.update(len(batch_data))
             else:
@@ -844,13 +930,13 @@ class IndexedParquetDataset(Dataset):
                             buffer.append(mapped_item)
                             
                             if len(buffer) >= chunk_size:
-                                out_table = pa.Table.from_pylist(buffer)
+                                out_table = pa.Table.from_pylist(buffer, schema=target_schema)
                                 write_table_with_shards(out_table)
                                 pbar.update(len(buffer))
                                 buffer = []
 
                 if buffer:
-                    out_table = pa.Table.from_pylist(buffer)
+                    out_table = pa.Table.from_pylist(buffer, schema=target_schema)
                     write_table_with_shards(out_table)
                     pbar.update(len(buffer))
         finally:

@@ -12,6 +12,23 @@ from .indexer import scan_directory, BaseIndex, FileInfo
 from .schema import SchemaMapper
 
 try:
+    from tqdm import tqdm
+except ImportError:
+    class tqdm:
+        def __init__(self, iterable=None, total=None, desc=None, **kwargs):
+            self.iterable = iterable
+            self.total = total
+            self.n = 0
+            self.desc = desc
+        def __iter__(self):
+            for i in self.iterable:
+                yield i
+                self.n += 1
+        def update(self, n=1): self.n += n
+        def close(self): pass
+        def set_description(self, desc): self.desc = desc
+
+try:
     import torch
     from torch.utils.data import Dataset
     _TORCH_AVAILABLE = True
@@ -682,16 +699,31 @@ class IndexedParquetDataset(Dataset):
             
         return self.alias(column, transform)
 
-    def to_parquet(self, path: str, chunk_size: int = 1024, shard_size: Optional[int] = None):
+    def to_parquet(
+        self, 
+        path: str, 
+        chunk_size: int = 1024, 
+        shard_size: Optional[int] = None,
+        optimize_by_reorder: bool = True,
+        progress: bool = True
+    ):
         """Materializes the dataset to one or more Parquet files.
         
         Args:
             path: Output file path or directory (if sharding).
             chunk_size: Cache size for intermediate batch collection.
             shard_size: If set, splits the dataset into multiple files of this many rows.
+            optimize_by_reorder: If True, reads data in source-linear order (fastest),
+                but potentially changes the row order in the output file.
+            progress: Whether to show a progress bar.
         """
+        # Ensure .parquet extension for single file output
+        effective_path = path
+        if not shard_size and not effective_path.lower().endswith('.parquet'):
+            effective_path += '.parquet'
+
         if shard_size:
-            os.makedirs(path, exist_ok=True)
+            os.makedirs(effective_path, exist_ok=True)
             
         writer = None
         rows_in_current_shard = 0
@@ -699,40 +731,146 @@ class IndexedParquetDataset(Dataset):
         
         def get_shard_path():
             if shard_size:
-                return os.path.join(path, f"part_{shard_idx:04d}.parquet")
-            return path
+                return os.path.join(effective_path, f"part_{shard_idx:04d}.parquet")
+            return effective_path
 
-        effective_chunk_size = min(chunk_size, shard_size) if shard_size else chunk_size
-        
-        for i in range(0, len(self), effective_chunk_size):
-            batch_indices = list(range(i, min(i + effective_chunk_size, len(self))))
-            batch_data = self[batch_indices]
+        def write_table_with_shards(table):
+            nonlocal writer, rows_in_current_shard, shard_idx
             
-            if not batch_data: continue
-            
-            table = pa.Table.from_pylist(batch_data)
-            
-            # Sharding logic: if we are at the start of a new shard, close old and open new
-            if shard_size and rows_in_current_shard >= shard_size:
-                if writer:
-                    writer.close()
+            if not shard_size:
+                if writer is None:
+                    writer = pq.ParquetWriter(get_shard_path(), table.schema)
+                writer.write_table(table)
+                rows_in_current_shard += len(table)
+                return
+
+            offset = 0
+            while offset < len(table):
+                # If current shard is full, move to next
+                if rows_in_current_shard >= shard_size:
+                    if writer: writer.close()
+                    shard_idx += 1
                     writer = None
-                shard_idx += 1
-                rows_in_current_shard = 0
-            
-            if writer is None:
-                writer = pq.ParquetWriter(get_shard_path(), table.schema)
-            
-            writer.write_table(table)
-            rows_in_current_shard += len(batch_data)
-            
-        if writer:
-            writer.close()
+                    rows_in_current_shard = 0
+                
+                remaining_in_shard = shard_size - rows_in_current_shard
+                to_write = min(len(table) - offset, remaining_in_shard)
+                
+                chunk = table.slice(offset, to_write)
+                if writer is None:
+                    writer = pq.ParquetWriter(get_shard_path(), chunk.schema)
+                
+                writer.write_table(chunk)
+                rows_in_current_shard += to_write
+                offset += to_write
 
-    def clone(self, path: str) -> 'IndexedParquetDataset':
+        total_rows = len(self)
+        pbar = tqdm(total=total_rows, desc="Writing Parquet", disable=not progress)
+        
+        try:
+            if not optimize_by_reorder:
+                # Original slow path (preserves order)
+                effective_chunk_size = chunk_size # No need to min() with shard_size anymore
+                for i in range(0, total_rows, effective_chunk_size):
+                    batch_indices = list(range(i, min(i + effective_chunk_size, total_rows)))
+                    batch_data = self[batch_indices]
+                    if not batch_data: continue
+                    
+                    table = pa.Table.from_pylist(batch_data)
+                    write_table_with_shards(table)
+                    pbar.update(len(batch_data))
+            else:
+                # Optimized path: Group by (file, RG) to minimize reads
+                # ...
+                from collections import defaultdict
+                file_to_rg_to_rows = defaultdict(lambda: defaultdict(list))
+                
+                # Pre-calculate RG boundaries for speed
+                file_rg_bounds = [np.cumsum([0] + f.row_groups) for f in self.index.files]
+                
+                # Process active indices
+                for idx in self.indices:
+                    f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
+                    l_idx = idx - self.file_offsets[f_idx]
+                    rg_idx = np.searchsorted(file_rg_bounds[f_idx], l_idx, side='right') - 1
+                    l_idx_in_rg = l_idx - file_rg_bounds[f_idx][rg_idx]
+                    file_to_rg_to_rows[f_idx][rg_idx].append(l_idx_in_rg)
+
+                # 2. Iterate and write
+                buffer = []
+                
+                # Sort files and RGs for linear access
+                for f_idx in sorted(file_to_rg_to_rows.keys()):
+                    pf = self._get_file_handle(f_idx)
+                    file_info = self.index.files[f_idx]
+                    
+                    # Columns optimization
+                    requested_columns = None
+                    if self.selected_columns is not None and not self.mapper.transforms:
+                        requested_columns = []
+                        for col in self.schema:
+                            if col == self.source_column_name: continue
+                            src_col = self.mapper.get_source_column(col, file_info.path)
+                            if src_col in file_info.columns: requested_columns.append(src_col)
+                        if not requested_columns and self.schema: requested_columns = None
+
+                    rgs = file_to_rg_to_rows[f_idx]
+                    for rg_idx in sorted(rgs.keys()):
+                        rows_in_rg = rgs[rg_idx]
+                        table = pf.read_row_group(rg_idx, columns=requested_columns)
+                        
+                        for l_idx_in_rg in rows_in_rg:
+                            row_dict = table.slice(l_idx_in_rg, 1).to_pydict()
+                            item = {k: v[0] for k, v in row_dict.items()}
+                            
+                            for col in self.index.all_columns:
+                                if col not in item: item[col] = self._get_fill_value(self.mapper.mapping.get(col, col))
+                            if self.include_source_column: item[self.source_column_name] = file_info.path
+                            item = self.mapper.map_columns(item, file_info.path)
+                            
+                            mapped_item = {}
+                            for col in self.schema:
+                                val = item.get(col, self._get_fill_value(col))
+                                if val is None: val = self._get_fill_value(col)
+                                if col in self._type_casts and val is not None:
+                                    try: val = self._type_casts[col](val)
+                                    except: pass
+                                if isinstance(val, (dict, list)):
+                                    val = self._deep_fill_nones(val, self._get_fill_value(col))
+                                mapped_item[col] = val
+                            for row_fn in self.mapper.row_transforms:
+                                mapped_item = row_fn(mapped_item)
+                            
+                            buffer.append(mapped_item)
+                            
+                            if len(buffer) >= chunk_size:
+                                out_table = pa.Table.from_pylist(buffer)
+                                write_table_with_shards(out_table)
+                                pbar.update(len(buffer))
+                                buffer = []
+
+                if buffer:
+                    out_table = pa.Table.from_pylist(buffer)
+                    write_table_with_shards(out_table)
+                    pbar.update(len(buffer))
+        finally:
+            if writer: writer.close()
+            pbar.close()
+
+    def clone(
+        self, 
+        path: str, 
+        optimize_by_reorder: bool = True, 
+        progress: bool = True
+    ) -> 'IndexedParquetDataset':
         """Materializes all computations and returns a new dataset instance."""
-        self.to_parquet(path)
-        return IndexedParquetDataset.from_folder(os.path.dirname(path), pattern=os.path.basename(path))
+        # to_parquet will append .parquet if needed, but we need to know the effective path
+        effective_path = path
+        if not effective_path.lower().endswith('.parquet'):
+            effective_path += '.parquet'
+            
+        self.to_parquet(effective_path, optimize_by_reorder=optimize_by_reorder, progress=progress)
+        return IndexedParquetDataset.from_folder(effective_path)
 
     def filter(
         self, 

@@ -690,8 +690,13 @@ class IndexedParquetDataset(Dataset):
             chunk_size: Cache size for intermediate batch collection.
             shard_size: If set, splits the dataset into multiple files of this many rows.
         """
+        # Ensure .parquet extension for single file output
+        effective_path = path
+        if not shard_size and not effective_path.lower().endswith('.parquet'):
+            effective_path += '.parquet'
+
         if shard_size:
-            os.makedirs(path, exist_ok=True)
+            os.makedirs(effective_path, exist_ok=True)
             
         writer = None
         rows_in_current_shard = 0
@@ -699,8 +704,8 @@ class IndexedParquetDataset(Dataset):
         
         def get_shard_path():
             if shard_size:
-                return os.path.join(path, f"part_{shard_idx:04d}.parquet")
-            return path
+                return os.path.join(effective_path, f"part_{shard_idx:04d}.parquet")
+            return effective_path
 
         effective_chunk_size = min(chunk_size, shard_size) if shard_size else chunk_size
         
@@ -731,8 +736,13 @@ class IndexedParquetDataset(Dataset):
 
     def clone(self, path: str) -> 'IndexedParquetDataset':
         """Materializes all computations and returns a new dataset instance."""
-        self.to_parquet(path)
-        return IndexedParquetDataset.from_folder(os.path.dirname(path), pattern=os.path.basename(path))
+        # to_parquet will append .parquet if needed, but we need to know the effective path
+        effective_path = path
+        if not effective_path.lower().endswith('.parquet'):
+            effective_path += '.parquet'
+            
+        self.to_parquet(effective_path)
+        return IndexedParquetDataset.from_folder(effective_path)
 
     def filter(
         self, 

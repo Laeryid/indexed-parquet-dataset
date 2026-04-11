@@ -56,8 +56,11 @@ def scan_directory(
         FileNotFoundError: If no files matching the pattern are found.
         ValueError: If strict_schema is True and a file schema doesn't match the first file.
     """
-    search_path = os.path.join(directory, "**", pattern) if recursive else os.path.join(directory, pattern)
-    file_paths = glob.glob(search_path, recursive=recursive)
+    if os.path.isfile(directory):
+        file_paths = [directory]
+    else:
+        search_path = os.path.join(directory, "**", pattern) if recursive else os.path.join(directory, pattern)
+        file_paths = glob.glob(search_path, recursive=recursive)
     
     if not file_paths:
         raise FileNotFoundError(f"No files matching pattern '{pattern}' found in '{directory}'")

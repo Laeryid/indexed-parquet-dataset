@@ -752,33 +752,41 @@ class IndexedParquetDataset(Dataset):
                             except: continue
                         f_schema = file_schemas.get(f_info.path)
                         if f_schema and src_col in f_schema.names:
-                            dataType = f_schema.field(src_col).type
-                            break
+                            found_type = f_schema.field(src_col).type
+                            # If it's a null type, keep looking for a better one
+                            if not pa.types.is_null(found_type):
+                                dataType = found_type
+                                break
+                            else:
+                                dataType = found_type # Fallback if no better found
             
-            # 3. Virtual or computed column?
-            if dataType is not None:
-                fields.append(pa.field(col, dataType))
-            elif col == self.source_column_name:
-                fields.append(pa.field(col, pa.string()))
-            else:
-                # Computed or missing column. Sample rows to infer type.
-                inferred_type = None
+            # 3. Virtual, computed or null column?
+            # If we only found a 'null' type, or found nothing, try to infer from sample
+            if dataType is None or pa.types.is_null(dataType):
+                # Sample rows to infer type.
                 sample_size = min(100, len(self))
                 if sample_size > 0:
                     try:
-                        sample_vals = [self[i].get(col) for i in range(sample_size)]
+                        # Using list slicing to get a batch
+                        sample_batch = self[:sample_size]
+                        sample_vals = [row.get(col) for row in sample_batch]
                         non_nones = [v for v in sample_vals if v is not None]
                         if non_nones:
                             # Use ALL non-nones in sample to infer the BROADEST type
                             inferred_type = pa.array(non_nones).type
-                        else:
-                            inferred_type = pa.string()
+                            if not pa.types.is_null(inferred_type):
+                                dataType = inferred_type
                     except:
-                        inferred_type = pa.string()
+                        pass
+            
+            # 4. Final safety fallbacks
+            if dataType is None or pa.types.is_null(dataType):
+                if col == self.source_column_name:
+                    dataType = pa.string()
                 else:
-                    inferred_type = pa.string()
-                
-                fields.append(pa.field(col, inferred_type or pa.string()))
+                    dataType = pa.string() # pa.null() is dangerous for ParquetWriter
+            
+            fields.append(pa.field(col, dataType))
         
         return pa.schema(fields)
 
@@ -963,7 +971,8 @@ class IndexedParquetDataset(Dataset):
         path_pattern: Optional[Union[str, Callable]] = None,
         path_filter: Optional[Union[str, List[str]]] = None,
         column_conditions: Optional[Dict[str, Any]] = None,
-        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None
+        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        show_progress: bool = False
     ) -> 'IndexedParquetDataset':
         if callable(path_pattern): predicate = path_pattern; path_pattern = None
         current_indices = self.indices.copy()
@@ -992,7 +1001,10 @@ class IndexedParquetDataset(Dataset):
                 file_to_indices[f_idx].append(idx)
             
             new_indices_list = []
-            for f_idx, f_global_indices in file_to_indices.items():
+            iterable = file_to_indices.items()
+            if show_progress:
+                iterable = tqdm(iterable, desc="Filtering files by conditions")
+            for f_idx, f_global_indices in iterable:
                 f_info, pf = self.index.files[f_idx], self._get_file_handle(f_idx)
                 # Simplified condition check via pyarrow
                 table = pf.read(columns=[self.mapper.get_source_column(c) for c in column_conditions.keys() if self.mapper.get_source_column(c) in f_info.columns])
@@ -1028,9 +1040,23 @@ class IndexedParquetDataset(Dataset):
             current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
 
         if len(current_indices) > 0 and predicate:
-            temp_ds = self._clone_with_indices(current_indices)
-            mask = [predicate(temp_ds[i]) for i in range(len(temp_ds))]
-            current_indices = current_indices[np.array(mask)]
+            file_to_indices = {}
+            for idx in current_indices:
+                f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
+                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
+                file_to_indices[f_idx].append(idx)
+            
+            new_indices_list = []
+            iterable = file_to_indices.items()
+            if show_progress:
+                iterable = tqdm(iterable, desc="Filtering files by predicate")
+                
+            for f_idx, f_global_indices in iterable:
+                f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
+                rows = self._read_rows_from_file(f_idx, f_local_indices.tolist())
+                mask = [predicate(row) for row in rows]
+                new_indices_list.append(np.array(f_global_indices)[np.array(mask)])
+            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
 
         return self._clone_with_indices(current_indices)
 

@@ -10,7 +10,8 @@ class SchemaMapper:
         mapping: Optional[Dict[str, str]] = None, 
         file_mappings: Optional[Dict[str, Dict[str, str]]] = None,
         transforms: Optional[Dict[str, Callable]] = None,
-        row_transforms: Optional[List[Callable[[dict], dict]]] = None
+        row_transforms: Optional[List[Callable[[dict], dict]]] = None,
+        batch_transforms: Optional[List[tuple[Callable[[List[dict]], List[dict]], int]]] = None
     ):
         """Initializes the SchemaMapper.
         
@@ -19,11 +20,13 @@ class SchemaMapper:
             file_mappings: File-specific mappings (file path -> {original -> target}).
             transforms: Global transformations (target name -> function(row)).
             row_transforms: Row-level transformations (list of functions function(row) -> row).
+            batch_transforms: Batch-level transformations (list of (function, batch_size) tuples).
         """
         self.mapping = mapping if mapping is not None else {}
         self.file_mappings = file_mappings if file_mappings is not None else {}
         self.transforms = transforms if transforms is not None else {}
         self.row_transforms = row_transforms if row_transforms is not None else []
+        self.batch_transforms = batch_transforms if batch_transforms is not None else []
         self._rebuild_reverse_mapping()
 
     def _rebuild_reverse_mapping(self) -> None:
@@ -88,7 +91,8 @@ class SchemaMapper:
             "mapping": self.mapping,
             "file_mappings": self.file_mappings,
             "transforms": self.transforms,
-            "row_transforms": self.row_transforms
+            "row_transforms": self.row_transforms,
+            "batch_transforms": self.batch_transforms
         }
 
     @classmethod
@@ -98,7 +102,8 @@ class SchemaMapper:
             mapping=data.get("mapping"),
             file_mappings=data.get("file_mappings"),
             transforms=data.get("transforms"),
-            row_transforms=data.get("row_transforms")
+            row_transforms=data.get("row_transforms"),
+            batch_transforms=data.get("batch_transforms")
         )
 
     def merge(self, other: 'SchemaMapper', self_files: List[str], other_files: List[str]) -> 'SchemaMapper':
@@ -137,8 +142,15 @@ class SchemaMapper:
         new_transforms.update(other.transforms)
         
         new_row_transforms = self.row_transforms + other.row_transforms
+        new_batch_transforms = self.batch_transforms + other.batch_transforms
         
-        return SchemaMapper(new_global_mapping, new_file_mappings, new_transforms, new_row_transforms)
+        return SchemaMapper(
+            new_global_mapping, 
+            new_file_mappings, 
+            new_transforms, 
+            new_row_transforms,
+            new_batch_transforms
+        )
 
     def __repr__(self) -> str:
         return f"SchemaMapper(mapping={self.mapping}, file_mappings={self.file_mappings})"

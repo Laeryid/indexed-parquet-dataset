@@ -974,6 +974,37 @@ class IndexedParquetDataset(Dataset):
         predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
         show_progress: bool = False
     ) -> 'IndexedParquetDataset':
+        """Filters the dataset based on file paths, column conditions, or a custom predicate.
+
+        This method is lazy and returns a new IndexedParquetDataset instance with updated indices.
+        It supports three levels of filtering:
+        1. File-level (fastest): via `path_pattern` or `path_filter`.
+        2. Column-level (fast, PyArrow-based): via `column_conditions`.
+        3. Row-level (flexible, Python-based): via `predicate`.
+
+        Args:
+            path_pattern: A string to search for as a substring in the absolute file path.
+                If a callable is provided, it is automatically treated as the `predicate` argument.
+            path_filter: A glob pattern (e.g., `"**/2023/*.parquet"`) or a list of glob patterns.
+                Only files matching at least one pattern will be kept.
+            column_conditions: A dictionary mapping column names to filter conditions.
+                Supported formats:
+                - `{"col": value}`: Exact match equality on PyArrow side.
+                - `{"col": ("operator", value)}`: Comparison using operators: 
+                  `"=="`, `">"`, `">="`, `"<"`, `"<="`.
+                Example: `{"category": "A", "score": (">", 0.5)}`
+            predicate: A callable that takes a row (dict) and returns a boolean.
+                Example: `lambda row: len(row["text"]) > 100`
+            show_progress: If True, displays progress bars (using tqdm) during file processing 
+                for column conditions and predicates.
+
+        Returns:
+            A new IndexedParquetDataset instance containing only the matching rows.
+
+        Note:
+            If multiple filter types are provided, they are applied in the following order:
+            File filters -> Column conditions -> Predicate.
+        """
         if callable(path_pattern): predicate = path_pattern; path_pattern = None
         current_indices = self.indices.copy()
 

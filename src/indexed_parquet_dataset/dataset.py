@@ -53,6 +53,7 @@ class IndexedParquetDataset(Dataset):
         max_open_files: int = 128,
         _type_casts: Optional[Dict[str, type]] = None,
         selected_columns: Optional[List[str]] = None,
+        _pending_filter: Optional[Dict[str, Any]] = None,
     ):
         """Initializes the dataset.
 
@@ -86,10 +87,14 @@ class IndexedParquetDataset(Dataset):
         self.selected_columns = selected_columns
 
         # indices allows for shuffling, filtering, and subsets without modifying the base index
-        if indices is not None:
-            self.indices = indices
-        else:
-            self.indices = np.arange(self.index.total_rows)
+        self._indices: Optional[np.ndarray] = indices
+        self._pending_filter: Optional[Dict[str, Any]] = _pending_filter
+        
+        if indices is None:
+            # We don't set _indices to arange here if we want to support lazy construction,
+            # but usually from_folder/scan_directory gives us total_rows.
+            # If indices is None and no _pending_filter, it means 'full dataset'.
+            pass
 
         # Cumulative row counts for fast lookups
         self.file_offsets = np.cumsum([0] + [f.num_rows for f in self.index.files])
@@ -97,6 +102,178 @@ class IndexedParquetDataset(Dataset):
         # LRU cache for open file handles (Lazy Loading)
         self.max_open_files = max_open_files
         self._file_handles: OrderedDict[int, pq.ParquetFile] = OrderedDict()
+
+    @property
+    def indices(self) -> np.ndarray:
+        """Returns the array of active indices, materializing them if necessary."""
+        if self._indices is None:
+            if self._pending_filter:
+                self._materialize_filter()
+            else:
+                self._indices = np.arange(self.index.total_rows)
+        return self._indices
+
+    def _materialize_filter(self) -> None:
+        """Executes the pending filter with potential early stopping (Operator Fusion)."""
+        if not self._pending_filter:
+            return
+
+        params = self._pending_filter
+        f_row = params.get('filter_row')
+        f_batch = params.get('filter_batch')
+        transform_batch = params.get('transform_batch')
+        column_conditions = params.get('column_conditions')
+        path_pattern = params.get('path_pattern')
+        path_filter = params.get('path_filter')
+        limit = params.get('limit')
+        batch_size = params.get('batch_size', 1024)
+        show_progress = params.get('show_progress', False)
+        mapper = params.get('mapper_snapshot', self.mapper)
+
+        # Initial indices to filter
+        current_indices = params.get('input_indices', np.arange(self.index.total_rows))
+
+        # 1. File Path Filtering (Fast)
+        if path_pattern or path_filter:
+            valid_file_indices = []
+            filters = [path_filter] if isinstance(path_filter, str) else (path_filter or [])
+            for i, f in enumerate(self.index.files):
+                match = (path_pattern and isinstance(path_pattern, str) and path_pattern in f.path)
+                if not match:
+                    for pattern in filters:
+                        if fnmatch.fnmatch(f.path, pattern): match = True; break
+                if match: valid_file_indices.append(i)
+            
+            mask = np.zeros(len(current_indices), dtype=bool)
+            for f_idx in valid_file_indices:
+                start, end = self.file_offsets[f_idx], self.file_offsets[f_idx + 1]
+                mask |= (current_indices >= start) & (current_indices < end)
+            current_indices = current_indices[mask]
+
+        # 2. Column Conditions (PyArrow-based)
+        if len(current_indices) > 0 and column_conditions:
+            file_to_indices = {}
+            for idx in current_indices:
+                f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
+                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
+                file_to_indices[f_idx].append(idx)
+            
+            new_indices_list = []
+            for f_idx, f_global_indices in sorted(file_to_indices.items()):
+                f_info = self.index.files[f_idx]
+                pf = self._get_file_handle(f_idx)
+                
+                table = pf.read(columns=[mapper.get_source_column(c) for c in column_conditions.keys() if mapper.get_source_column(c) in f_info.columns])
+                file_mask = None
+                for col, cond in column_conditions.items():
+                    src_col = mapper.get_source_column(col, f_info.path)
+                    if src_col not in table.column_names:
+                        c_mask = pa.scalar(None, type=pa.bool_())
+                    else:
+                        arr = table.column(src_col)
+                        if isinstance(cond, tuple):
+                            op, val = cond
+                            if op == '==': c_mask = pc.equal(arr, val)
+                            elif op == '>': c_mask = pc.greater(arr, val)
+                            elif op == '>=': c_mask = pc.greater_equal(arr, val)
+                            elif op == '<': c_mask = pc.less(arr, val)
+                            elif op == '<=': c_mask = pc.less_equal(arr, val)
+                            else: c_mask = None
+                        else:
+                            c_mask = pc.equal(arr, cond)
+                    
+                    if c_mask is not None:
+                        if file_mask is None: file_mask = c_mask
+                        else: file_mask = pc.and_(file_mask, c_mask)
+                
+                if file_mask is None:
+                    file_mask_np = np.ones(len(table), dtype=bool)
+                else:
+                    file_mask_np = pc.fill_null(file_mask, False).to_numpy().astype(bool)
+                
+                f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
+                new_indices_list.append(np.array(f_global_indices)[file_mask_np[f_local_indices]])
+            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
+
+        # 3. Predicate / Batch Filter (Python-based) with EARLY STOPPING
+        if len(current_indices) > 0 and (f_row or f_batch or transform_batch):
+            file_to_indices = {}
+            for idx in current_indices:
+                f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
+                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
+                file_to_indices[f_idx].append(idx)
+            
+            new_indices_list = []
+            matches_found = 0
+            iterable = sorted(file_to_indices.items())
+            
+            for i, (f_idx, f_global_indices) in enumerate(iterable):
+                if limit is not None and matches_found >= limit:
+                    break
+
+                f_info = self.index.files[f_idx]
+                f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
+                
+                desc = f"[File {i+1}/{len(iterable)}] {os.path.basename(f_info.path)}"
+                pbar = tqdm(total=len(f_local_indices), desc=desc, disable=not show_progress, leave=False)
+                
+                file_results_mask = []
+                for start_batch in range(0, len(f_local_indices), batch_size):
+                    if limit is not None and matches_found >= limit:
+                        break
+
+                    end_batch = min(start_batch + batch_size, len(f_local_indices))
+                    batch_local_indices = f_local_indices[start_batch:end_batch].tolist()
+                    
+                    # Note: _read_rows_from_file uses internal self.mapper, but we should 
+                    # ideally use the snapshot mapper for the filter phase if it's different.
+                    # However, _read_rows_from_file is designed for normal access.
+                    # We'll temporarily point self.mapper to snapshot if needed, 
+                    # or just rely on the fact that Mapper is usually stable or merged.
+                    rows = self._read_rows_from_file(f_idx, batch_local_indices)
+                    
+                    if transform_batch:
+                        rows = transform_batch(rows)
+                    
+                    if f_batch:
+                        batch_mask = f_batch(rows)
+                    elif f_row:
+                        batch_mask = [f_row(row) for row in rows]
+                    else:
+                        batch_mask = [True] * len(rows)
+
+                    # Early stopping within batch
+                    valid_in_batch = sum(batch_mask)
+                    if limit is not None and matches_found + valid_in_batch > limit:
+                        # Slice the mask to stop exactly at limit
+                        trimmed_mask = []
+                        temp_count = matches_found
+                        for val in batch_mask:
+                            if val:
+                                if temp_count < limit:
+                                    trimmed_mask.append(True)
+                                    temp_count += 1
+                                else:
+                                    trimmed_mask.append(False)
+                            else:
+                                trimmed_mask.append(False)
+                        batch_mask = trimmed_mask
+                        valid_in_batch = limit - matches_found
+
+                    file_results_mask.extend(batch_mask)
+                    matches_found += valid_in_batch
+                    
+                    if limit is not None:
+                        pbar.set_postfix({"found": f"{matches_found}/{limit}"})
+                    pbar.update(len(batch_local_indices))
+                
+                pbar.close()
+                new_indices_list.append(np.array(f_global_indices)[:len(file_results_mask)][np.array(file_results_mask)])
+            
+            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
+
+        self._indices = current_indices
+        self._pending_filter = None
 
     def __getstate__(self):
         """Returns the state for pickling, excluding non-picklable file handles."""
@@ -154,9 +331,14 @@ class IndexedParquetDataset(Dataset):
             for target_col in f_map.values():
                 all_cols.add(target_col)
                 
-        # 3. Add computed columns
+        # 3. Add computed columns (row-level)
         for col in self.mapper.transforms.keys():
             all_cols.add(col)
+            
+        # 4. Add computed columns (batch-level)
+        if hasattr(self.mapper, 'batch_column_transforms'):
+            for col in self.mapper.batch_column_transforms.keys():
+                all_cols.add(col)
             
         if self.include_source_column:
             all_cols.add(self.source_column_name)
@@ -352,8 +534,15 @@ class IndexedParquetDataset(Dataset):
 
         results_ordered = [local_idx_to_result[l_idx] for l_idx in local_indices]
         
-        # Apply batch transformations
-        if hasattr(self.mapper, 'batch_transforms'):
+        # Apply batch column transformations (e.g., batch-calculated aliases/transforms)
+        if hasattr(self.mapper, 'batch_column_transforms') and self.mapper.batch_column_transforms:
+            for col_name, (batch_fn, _) in self.mapper.batch_column_transforms.items():
+                col_values = batch_fn(results_ordered)
+                for row, val in zip(results_ordered, col_values):
+                    row[col_name] = val
+
+        # Apply whole-batch transformations
+        if hasattr(self.mapper, 'batch_transforms') and self.mapper.batch_transforms:
             for batch_fn, _ in self.mapper.batch_transforms:
                 results_ordered = batch_fn(results_ordered)
                 
@@ -467,9 +656,24 @@ class IndexedParquetDataset(Dataset):
         return self._clone_with_indices(new_indices)
 
     def limit(self, n: int) -> 'IndexedParquetDataset':
+        """Limits the dataset to the first n rows.
+        
+        Args:
+            n: Maximum number of rows to keep.
+            
+        Returns:
+            A new IndexedParquetDataset instance.
+        """
+        if self._indices is None and self._pending_filter:
+            # Operator Fusion: Push the limit into the pending filter
+            # Create a copy of the pending filter to avoid side effects on the original
+            new_pending = self._pending_filter.copy()
+            new_pending['limit'] = n
+            return self._clone_with_indices(None, _pending_filter=new_pending)
+            
         return self.select(slice(0, n))
 
-    def _clone_with_indices(self, new_indices: np.ndarray) -> 'IndexedParquetDataset':
+    def _clone_with_indices(self, new_indices: np.ndarray, _pending_filter: Optional[Dict] = None) -> 'IndexedParquetDataset':
         return IndexedParquetDataset(
             self.index, new_indices, self.mapper,
             self.include_source_column, self.source_column_name,
@@ -477,6 +681,7 @@ class IndexedParquetDataset(Dataset):
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
             selected_columns=self.selected_columns,
+            _pending_filter=_pending_filter if _pending_filter is not None else (self._pending_filter.copy() if self._pending_filter else None)
         )
 
     def _clone_with_mapper(self, new_mapper: SchemaMapper) -> 'IndexedParquetDataset':
@@ -487,41 +692,59 @@ class IndexedParquetDataset(Dataset):
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
             selected_columns=self.selected_columns,
+            _pending_filter=self._pending_filter.copy() if self._pending_filter else None
         )
 
     def map(
         self, 
-        fn: Callable[[dict], dict], 
+        fn: Callable, 
         *, 
         remove_columns: Optional[List[str]] = None,
-        output_schema: Optional[List[str]] = None
+        output_schema: Optional[List[str]] = None,
+        is_batch: bool = False,
+        batch_size: int = 1024
     ) -> 'IndexedParquetDataset':
-        """Applies a row-level transformation to the dataset.
+        """Applies a transformation to the dataset.
         
         Args:
-            fn: A function that takes a row (dict) and returns a transformed row (dict).
+            fn: A function that takes a row (dict) and returns a transformed row (dict),
+                or if is_batch=True, takes a List[dict] and returns a List[dict].
             remove_columns: Optional list of columns to remove from the result.
             output_schema: Optional explicit list of columns for the new schema.
-            
-        Returns:
-            A new IndexedParquetDataset instance.
+            is_batch: If True, fn is treated as a batch transformation.
+            batch_size: Suggested batch size for processing (if is_batch=True).
         """
         new_mapper = SchemaMapper(
             mapping=self.mapper.mapping.copy(),
             file_mappings=self.mapper.file_mappings.copy(),
             transforms=self.mapper.transforms.copy(),
-            row_transforms=self.mapper.row_transforms.copy()
+            row_transforms=self.mapper.row_transforms.copy(),
+            batch_transforms=getattr(self.mapper, 'batch_transforms', []).copy(),
+            batch_column_transforms=getattr(self.mapper, 'batch_column_transforms', {}).copy()
         )
         effective_fn = fn
         if remove_columns:
-            def _wrapped_fn(row, _fn=fn, _cols=remove_columns):
-                result = _fn(row)
-                for c in _cols:
-                    result.pop(c, None)
-                return result
-            effective_fn = _wrapped_fn
+            if is_batch:
+                def _wrapped_batch_fn(batch, _fn=fn, _cols=remove_columns):
+                    results = _fn(batch)
+                    for row in results:
+                        for c in _cols:
+                            row.pop(c, None)
+                    return results
+                effective_fn = _wrapped_batch_fn
+            else:
+                def _wrapped_row_fn(row, _fn=fn, _cols=remove_columns):
+                    result = _fn(row)
+                    for c in _cols:
+                        result.pop(c, None)
+                    return result
+                effective_fn = _wrapped_row_fn
             
-        new_mapper.row_transforms.append(effective_fn)
+        if is_batch:
+            new_mapper.batch_transforms.append((effective_fn, batch_size))
+        else:
+            new_mapper.row_transforms.append(effective_fn)
+
         ds = self._clone_with_mapper(new_mapper)
         if output_schema:
             ds.selected_columns = output_schema
@@ -576,18 +799,23 @@ class IndexedParquetDataset(Dataset):
 
     def filter_batches(
         self, 
-        fn: Callable[[List[Dict[str, Any]]], List[bool]], 
+        fn: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None, 
         batch_size: int = 1024,
-        show_progress: bool = False
+        show_progress: bool = False,
+        transform_batch: Optional[Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]]] = None,
+        filter_batch: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None
     ) -> 'IndexedParquetDataset':
-        """Filters the dataset using a batch-level predicate.
+        """Filters the dataset using a batch-level filter function.
         
         Args:
-            fn: A function that takes a batch (List[dict]) and returns a list of booleans.
+            fn: Alias for filter_batch.
             batch_size: Batch size for processing.
             show_progress: If True, shows progress for each file.
+            transform_batch: Optional batch-level transformation before filtering.
+            filter_batch: A function that takes a batch and returns a list of booleans.
         """
-        return self.filter(predicate_batch=fn, batch_size=batch_size, show_progress=show_progress)
+        f_batch = filter_batch or fn
+        return self.filter(filter_batch=f_batch, transform_batch=transform_batch, batch_size=batch_size, show_progress=show_progress)
 
     def train_test_split(
         self, 
@@ -693,12 +921,16 @@ class IndexedParquetDataset(Dataset):
             end = min(i + batch_size, n)
             yield ds[i:end]
 
-    def alias(self, name: str, source: Union[str, Callable]) -> 'IndexedParquetDataset':
+    def alias(self, name: str, source: Union[str, Callable], is_batch: bool = False, batch_size: int = 1024) -> 'IndexedParquetDataset':
         """Creates a new alias for a column or a new computed column.
         
         Args:
             name: The target name of the column.
-            source: Either an original column name (string) or a function function(row) -> value.
+            source: Either an original column name (string), 
+                   a function function(row) -> value (if is_batch=False),
+                   or a function function(batch) -> List[values] (if is_batch=True).
+            is_batch: If True, source is treated as a batch transformation.
+            batch_size: Suggested batch size for processing (if is_batch=True).
             
         Returns:
             A new IndexedParquetDataset instance.
@@ -706,15 +938,27 @@ class IndexedParquetDataset(Dataset):
         new_mapper = SchemaMapper(
             mapping=self.mapper.mapping.copy(),
             file_mappings=self.mapper.file_mappings.copy(),
-            transforms=self.mapper.transforms.copy()
+            transforms=self.mapper.transforms.copy(),
+            row_transforms=self.mapper.row_transforms.copy(),
+            batch_transforms=getattr(self.mapper, 'batch_transforms', []).copy(),
+            batch_column_transforms=getattr(self.mapper, 'batch_column_transforms', {}).copy()
         )
         if isinstance(source, str):
             new_mapper.mapping[source] = name
             # Remove transform if we are re-aliasing to a source column
             if name in new_mapper.transforms:
                 del new_mapper.transforms[name]
+            if name in new_mapper.batch_column_transforms:
+                del new_mapper.batch_column_transforms[name]
         elif callable(source):
-            new_mapper.transforms[name] = source
+            if is_batch:
+                new_mapper.batch_column_transforms[name] = (source, batch_size)
+                if name in new_mapper.transforms:
+                    del new_mapper.transforms[name]
+            else:
+                new_mapper.transforms[name] = source
+                if name in new_mapper.batch_column_transforms:
+                    del new_mapper.batch_column_transforms[name]
         else:
             raise TypeError("Alias source must be a string or a callable.")
             
@@ -1013,8 +1257,15 @@ class IndexedParquetDataset(Dataset):
                             
                             processed_batch.append(mapped_item)
                             
-                        # Apply batch transforms
-                        if hasattr(self.mapper, 'batch_transforms'):
+                        # Apply batch column transforms
+                        if hasattr(self.mapper, 'batch_column_transforms') and self.mapper.batch_column_transforms:
+                            for col_name, (batch_fn, _) in self.mapper.batch_column_transforms.items():
+                                col_values = batch_fn(processed_batch)
+                                for row, val in zip(processed_batch, col_values):
+                                    row[col_name] = val
+
+                        # Apply whole-batch transforms
+                        if hasattr(self.mapper, 'batch_transforms') and self.mapper.batch_transforms:
                             for batch_fn, _ in self.mapper.batch_transforms:
                                 processed_batch = batch_fn(processed_batch)
                                 
@@ -1054,31 +1305,31 @@ class IndexedParquetDataset(Dataset):
         path_pattern: Optional[Union[str, Callable]] = None,
         path_filter: Optional[Union[str, List[str]]] = None,
         column_conditions: Optional[Dict[str, Any]] = None,
-        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
-        predicate_batch: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None,
+        filter_row: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        filter_batch: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None,
+        transform_batch: Optional[Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]]] = None,
         batch_size: int = 1024,
-        show_progress: bool = False
+        show_progress: bool = False,
+        limit: Optional[int] = None,
+        # Legacy names
+        predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        predicate_batch: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None
     ) -> 'IndexedParquetDataset':
-        """Filters the dataset based on file paths, column conditions, or a custom predicate.
+        """Filters the dataset based on file paths, column conditions, or a custom filter.
 
         This method is lazy and returns a new IndexedParquetDataset instance with updated indices.
         It supports three levels of filtering:
         1. File-level (fastest): via `path_pattern` or `path_filter`.
         2. Column-level (fast, PyArrow-based): via `column_conditions`.
-        3. Row-level (flexible, Python-based): via `predicate`.
+        3. Row-level/Batch-level (flexible, Python-based): via `filter_row` or `filter_batch`.
 
         Args:
             path_pattern: A string to search for as a substring in the absolute file path.
-                If a callable is provided, it is automatically treated as the `predicate` argument.
+                If a callable is provided, it is automatically treated as the `filter_row` argument.
             path_filter: A glob pattern (e.g., `"**/2023/*.parquet"`) or a list of glob patterns.
                 Only files matching at least one pattern will be kept.
             column_conditions: A dictionary mapping column names to filter conditions.
-                Supported formats:
-                - `{"col": value}`: Exact match equality on PyArrow side.
-                - `{"col": ("operator", value)}`: Comparison using operators: 
-                  `"=="`, `">"`, `">="`, `"<"`, `"<="`.
-                Example: `{"category": "A", "score": (">", 0.5)}`
-            predicate: A callable that takes a row (dict) and returns a boolean.
+            filter_row: A callable that takes a row (dict) and returns a boolean.
                 Example: `lambda row: len(row["text"]) > 100`
             show_progress: If True, displays progress bars (using tqdm) during file processing 
                 for column conditions and predicates.
@@ -1090,110 +1341,34 @@ class IndexedParquetDataset(Dataset):
             If multiple filter types are provided, they are applied in the following order:
             File filters -> Column conditions -> Predicate.
         """
-        if callable(path_pattern): predicate = path_pattern; path_pattern = None
-        current_indices = self.indices.copy()
+        if callable(path_pattern): filter_row = path_pattern; path_pattern = None
+        
+        # Handle legacy names
+        f_row = filter_row or predicate
+        f_batch = filter_batch or predicate_batch
+        
+        if predicate or predicate_batch:
+            warnings.warn("Arguments 'predicate' and 'predicate_batch' are deprecated. "
+                          "Use 'filter_row' and 'filter_batch' instead.", DeprecationWarning, stacklevel=2)
 
-        if path_pattern or path_filter:
-            valid_file_indices = []
-            filters = [path_filter] if isinstance(path_filter, str) else (path_filter or [])
-            for i, f in enumerate(self.index.files):
-                match = (path_pattern and isinstance(path_pattern, str) and path_pattern in f.path)
-                if not match:
-                    for pattern in filters:
-                        if fnmatch.fnmatch(f.path, pattern): match = True; break
-                if match: valid_file_indices.append(i)
-            
-            mask = np.zeros(len(current_indices), dtype=bool)
-            for f_idx in valid_file_indices:
-                start, end = self.file_offsets[f_idx], self.file_offsets[f_idx + 1]
-                mask |= (current_indices >= start) & (current_indices < end)
-            current_indices = current_indices[mask]
-
-        if len(current_indices) > 0 and column_conditions:
-            file_to_indices = {}
-            for idx in current_indices:
-                f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
-                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
-                file_to_indices[f_idx].append(idx)
-            
-            new_indices_list = []
-            iterable = sorted(file_to_indices.items())
-            
-            for i, (f_idx, f_global_indices) in enumerate(iterable):
-                f_info = self.index.files[f_idx]
-                f_info, pf = self.index.files[f_idx], self._get_file_handle(f_idx)
-                # Simplified condition check via pyarrow
-                table = pf.read(columns=[self.mapper.get_source_column(c) for c in column_conditions.keys() if self.mapper.get_source_column(c) in f_info.columns])
-                file_mask = None
-                for col, cond in column_conditions.items():
-                    src_col = self.mapper.get_source_column(col, f_info.path)
-                    if src_col not in table.column_names:
-                        c_mask = pa.scalar(None, type=pa.bool_())
-                    else:
-                        arr = table.column(src_col)
-                        if isinstance(cond, tuple):
-                            op, val = cond
-                            if op == '==': c_mask = pc.equal(arr, val)
-                            elif op == '>': c_mask = pc.greater(arr, val)
-                            elif op == '>=': c_mask = pc.greater_equal(arr, val)
-                            elif op == '<': c_mask = pc.less(arr, val)
-                            elif op == '<=': c_mask = pc.less_equal(arr, val)
-                            else: c_mask = None
-                        else:
-                            c_mask = pc.equal(arr, cond)
-                    
-                    if c_mask is not None:
-                        if file_mask is None: file_mask = c_mask
-                        else: file_mask = pc.and_(file_mask, c_mask)
-                
-                if file_mask is None:
-                    file_mask_np = np.ones(len(table), dtype=bool)
-                else:
-                    file_mask_np = pc.fill_null(file_mask, False).to_numpy().astype(bool)
-                
-                f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
-                new_indices_list.append(np.array(f_global_indices)[file_mask_np[f_local_indices]])
-            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
-
-        if len(current_indices) > 0 and (predicate or predicate_batch):
-            file_to_indices = {}
-            for idx in current_indices:
-                f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
-                if f_idx not in file_to_indices: file_to_indices[f_idx] = []
-                file_to_indices[f_idx].append(idx)
-            
-            new_indices_list = []
-            iterable = sorted(file_to_indices.items())
-            
-            for i, (f_idx, f_global_indices) in enumerate(iterable):
-                f_info = self.index.files[f_idx]
-                f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
-                
-                desc = f"[File {i+1}/{len(iterable)}] {os.path.basename(f_info.path)}"
-                pbar = tqdm(total=len(f_local_indices), desc=desc, disable=not show_progress, leave=False)
-                
-                file_results_mask = []
-                for start_batch in range(0, len(f_local_indices), batch_size):
-                    end_batch = min(start_batch + batch_size, len(f_local_indices))
-                    batch_local_indices = f_local_indices[start_batch:end_batch].tolist()
-                    
-                    rows = self._read_rows_from_file(f_idx, batch_local_indices)
-                    
-                    if predicate_batch:
-                        batch_mask = predicate_batch(rows)
-                        file_results_mask.extend(batch_mask)
-                    else:
-                        batch_mask = [predicate(row) for row in rows]
-                        file_results_mask.extend(batch_mask)
-                    
-                    pbar.update(len(batch_local_indices))
-                
-                pbar.close()
-                new_indices_list.append(np.array(f_global_indices)[np.array(file_results_mask)])
-                
-            current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
-
-        return self._clone_with_indices(current_indices)
+        # Lazy implementation: 
+        # We don't filter immediately. We return a clone that will filter on first access.
+        # This allows operator fusion with .limit()
+        pending = {
+            'filter_row': f_row,
+            'filter_batch': f_batch,
+            'transform_batch': transform_batch,
+            'column_conditions': column_conditions,
+            'path_pattern': path_pattern,
+            'path_filter': path_filter,
+            'limit': limit,
+            'batch_size': batch_size,
+            'show_progress': show_progress,
+            'input_indices': self.indices.copy(), # Snapshot of current active indices
+            'mapper_snapshot': self.mapper # Logic isolation
+        }
+        
+        return self._clone_with_indices(None, _pending_filter=pending)
 
     def merge(self, other: 'IndexedParquetDataset') -> 'IndexedParquetDataset':
         """Merges this dataset with another one, deduplicating identical rows.

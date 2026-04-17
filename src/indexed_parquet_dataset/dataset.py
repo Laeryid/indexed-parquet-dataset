@@ -297,10 +297,16 @@ class IndexedParquetDataset(Dataset):
             table = pf.read_row_group(rg_idx, columns=requested_source_cols)
             rg_start_offset = sum(file_info.row_groups[:rg_idx])
             
-            for l_idx_in_rg in rg_local_indices:
-                row_dict = table.slice(l_idx_in_rg, 1).to_pydict()
-                item = {k: v[0] for k, v in row_dict.items()}
-                
+            # Optimization: Use take() to get only needed rows if indexing is sparse or out of order
+            is_sequential = len(rg_local_indices) == len(table) and all(rg_local_indices[i] == i for i in range(len(rg_local_indices)))
+            if not is_sequential:
+                subset_table = table.take(pa.array(rg_local_indices))
+                batch_data = subset_table.to_pylist()
+            else:
+                batch_data = table.to_pylist()
+            
+            # Post-process the batch
+            for l_idx_in_rg, item in zip(rg_local_indices, batch_data):
                 # 0. Ensure all columns from index are present (as None/Fill)
                 for col in self.index.all_columns:
                     if col not in item:
@@ -331,23 +337,27 @@ class IndexedParquetDataset(Dataset):
                         except (ValueError, TypeError):
                             pass
 
-                    # Recursively sanitize nested dicts/lists (e.g. struct columns
-                    # with null-typed fields like `seed: null` in PyArrow schemas).
-                    # default_collate cannot handle NoneType anywhere in the tree.
+                    # Recursively sanitize nested dicts/lists
                     if isinstance(val, (dict, list)):
                         fill = self._get_fill_value(col)
                         val = self._deep_fill_nones(val, fill)
 
                     mapped_item[col] = val
 
-                # 3. Apply row-level transformations (new)
-                # These are applied AFTER schema mapping to allow adding new columns
+                # 3. Apply row-level transformations
                 for row_fn in self.mapper.row_transforms:
                     mapped_item = row_fn(mapped_item)
                 
                 local_idx_to_result[l_idx_in_rg + rg_start_offset] = mapped_item
 
-        return [local_idx_to_result[l_idx] for l_idx in local_indices]
+        results_ordered = [local_idx_to_result[l_idx] for l_idx in local_indices]
+        
+        # Apply batch transformations
+        if hasattr(self.mapper, 'batch_transforms'):
+            for batch_fn, _ in self.mapper.batch_transforms:
+                results_ordered = batch_fn(results_ordered)
+                
+        return results_ordered
 
     def __getitem__(self, idx: Union[int, List[int], slice, np.ndarray]) -> Any:
         if isinstance(idx, (int, np.integer)):
@@ -517,6 +527,67 @@ class IndexedParquetDataset(Dataset):
             ds.selected_columns = output_schema
         return ds
 
+    def map_batches(
+        self, 
+        fn: Callable[[List[dict]], List[dict]], 
+        *, 
+        batch_size: int = 1024,
+        remove_columns: Optional[List[str]] = None,
+        output_schema: Optional[List[str]] = None
+    ) -> 'IndexedParquetDataset':
+        """Applies a batch-level transformation to the dataset.
+        
+        Args:
+            fn: A function that takes a batch (List[dict]) and returns a transformed batch (List[dict]).
+            batch_size: Suggested batch size for processing.
+            remove_columns: Optional list of columns to remove from the result.
+            output_schema: Optional explicit list of columns for the new schema.
+        """
+        def _wrapper_fn(batch, _fn=fn, _cols=remove_columns):
+            results = _fn(batch)
+            if _cols:
+                for row in results:
+                    for c in _cols:
+                        row.pop(c, None)
+            return results
+
+        # This logic is tricky because mapper.row_transforms expects a single row.
+        # We need to add a special kind of transform or a wrapper.
+        # For now, let's implement this by wrapping the batch function into a row-level 
+        # stateful transform or just adding a new list for batch transforms.
+        # But wait, IndexedParquetDataset is designed for random access. 
+        # Batch transforms are harder to support for random access if they are stateful.
+        # Assuming they are stateless per batch.
+        
+        # Implementation: Add it to a new 'batch_transforms' list in SchemaMapper.
+        new_mapper = SchemaMapper(
+            mapping=self.mapper.mapping.copy(),
+            file_mappings=self.mapper.file_mappings.copy(),
+            transforms=self.mapper.transforms.copy(),
+            row_transforms=self.mapper.row_transforms.copy(),
+            batch_transforms=getattr(self.mapper, 'batch_transforms', []).copy()
+        )
+        new_mapper.batch_transforms.append((effective_fn := _wrapper_fn, batch_size))
+        
+        ds = self._clone_with_mapper(new_mapper)
+        if output_schema:
+            ds.selected_columns = output_schema
+        return ds
+
+    def filter_batches(
+        self, 
+        fn: Callable[[List[Dict[str, Any]]], List[bool]], 
+        batch_size: int = 1024,
+        show_progress: bool = False
+    ) -> 'IndexedParquetDataset':
+        """Filters the dataset using a batch-level predicate.
+        
+        Args:
+            fn: A function that takes a batch (List[dict]) and returns a list of booleans.
+            batch_size: Batch size for processing.
+            show_progress: If True, shows progress for each file.
+        """
+        return self.filter(predicate_batch=fn, batch_size=batch_size, show_progress=show_progress)
 
     def train_test_split(
         self, 
@@ -913,10 +984,15 @@ class IndexedParquetDataset(Dataset):
                         rows_in_rg = rgs[rg_idx]
                         table = pf.read_row_group(rg_idx, columns=requested_columns)
                         
-                        for l_idx_in_rg in rows_in_rg:
-                            row_dict = table.slice(l_idx_in_rg, 1).to_pydict()
-                            item = {k: v[0] for k, v in row_dict.items()}
+                        # Batch conversion for speed
+                        is_sequential = len(rows_in_rg) == len(table) and all(rows_in_rg[i] == i for i in range(len(rows_in_rg)))
+                        if not is_sequential:
+                            batch_data = table.take(pa.array(rows_in_rg)).to_pylist()
+                        else:
+                            batch_data = table.to_pylist()
                             
+                        processed_batch = []
+                        for l_idx_in_rg, item in zip(rows_in_rg, batch_data):
                             for col in self.index.all_columns:
                                 if col not in item: item[col] = self._get_fill_value(self.mapper.mapping.get(col, col))
                             if self.include_source_column: item[self.source_column_name] = file_info.path
@@ -935,13 +1011,20 @@ class IndexedParquetDataset(Dataset):
                             for row_fn in self.mapper.row_transforms:
                                 mapped_item = row_fn(mapped_item)
                             
-                            buffer.append(mapped_item)
+                            processed_batch.append(mapped_item)
                             
-                            if len(buffer) >= chunk_size:
-                                out_table = pa.Table.from_pylist(buffer, schema=target_schema)
-                                write_table_with_shards(out_table)
-                                pbar.update(len(buffer))
-                                buffer = []
+                        # Apply batch transforms
+                        if hasattr(self.mapper, 'batch_transforms'):
+                            for batch_fn, _ in self.mapper.batch_transforms:
+                                processed_batch = batch_fn(processed_batch)
+                                
+                        buffer.extend(processed_batch)
+                        
+                        if len(buffer) >= chunk_size:
+                            out_table = pa.Table.from_pylist(buffer, schema=target_schema)
+                            write_table_with_shards(out_table)
+                            pbar.update(len(buffer))
+                            buffer = []
 
                 if buffer:
                     out_table = pa.Table.from_pylist(buffer, schema=target_schema)
@@ -972,6 +1055,8 @@ class IndexedParquetDataset(Dataset):
         path_filter: Optional[Union[str, List[str]]] = None,
         column_conditions: Optional[Dict[str, Any]] = None,
         predicate: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        predicate_batch: Optional[Callable[[List[Dict[str, Any]]], List[bool]]] = None,
+        batch_size: int = 1024,
         show_progress: bool = False
     ) -> 'IndexedParquetDataset':
         """Filters the dataset based on file paths, column conditions, or a custom predicate.
@@ -1032,10 +1117,10 @@ class IndexedParquetDataset(Dataset):
                 file_to_indices[f_idx].append(idx)
             
             new_indices_list = []
-            iterable = file_to_indices.items()
-            if show_progress:
-                iterable = tqdm(iterable, desc="Filtering files by conditions")
-            for f_idx, f_global_indices in iterable:
+            iterable = sorted(file_to_indices.items())
+            
+            for i, (f_idx, f_global_indices) in enumerate(iterable):
+                f_info = self.index.files[f_idx]
                 f_info, pf = self.index.files[f_idx], self._get_file_handle(f_idx)
                 # Simplified condition check via pyarrow
                 table = pf.read(columns=[self.mapper.get_source_column(c) for c in column_conditions.keys() if self.mapper.get_source_column(c) in f_info.columns])
@@ -1070,7 +1155,7 @@ class IndexedParquetDataset(Dataset):
                 new_indices_list.append(np.array(f_global_indices)[file_mask_np[f_local_indices]])
             current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
 
-        if len(current_indices) > 0 and predicate:
+        if len(current_indices) > 0 and (predicate or predicate_batch):
             file_to_indices = {}
             for idx in current_indices:
                 f_idx = np.searchsorted(self.file_offsets, idx, side='right') - 1
@@ -1078,15 +1163,34 @@ class IndexedParquetDataset(Dataset):
                 file_to_indices[f_idx].append(idx)
             
             new_indices_list = []
-            iterable = file_to_indices.items()
-            if show_progress:
-                iterable = tqdm(iterable, desc="Filtering files by predicate")
-                
-            for f_idx, f_global_indices in iterable:
+            iterable = sorted(file_to_indices.items())
+            
+            for i, (f_idx, f_global_indices) in enumerate(iterable):
+                f_info = self.index.files[f_idx]
                 f_local_indices = (np.array(f_global_indices) - self.file_offsets[f_idx]).astype(int)
-                rows = self._read_rows_from_file(f_idx, f_local_indices.tolist())
-                mask = [predicate(row) for row in rows]
-                new_indices_list.append(np.array(f_global_indices)[np.array(mask)])
+                
+                desc = f"[File {i+1}/{len(iterable)}] {os.path.basename(f_info.path)}"
+                pbar = tqdm(total=len(f_local_indices), desc=desc, disable=not show_progress, leave=False)
+                
+                file_results_mask = []
+                for start_batch in range(0, len(f_local_indices), batch_size):
+                    end_batch = min(start_batch + batch_size, len(f_local_indices))
+                    batch_local_indices = f_local_indices[start_batch:end_batch].tolist()
+                    
+                    rows = self._read_rows_from_file(f_idx, batch_local_indices)
+                    
+                    if predicate_batch:
+                        batch_mask = predicate_batch(rows)
+                        file_results_mask.extend(batch_mask)
+                    else:
+                        batch_mask = [predicate(row) for row in rows]
+                        file_results_mask.extend(batch_mask)
+                    
+                    pbar.update(len(batch_local_indices))
+                
+                pbar.close()
+                new_indices_list.append(np.array(f_global_indices)[np.array(file_results_mask)])
+                
             current_indices = np.concatenate(new_indices_list) if new_indices_list else np.array([], dtype=int)
 
         return self._clone_with_indices(current_indices)

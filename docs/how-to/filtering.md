@@ -28,6 +28,12 @@ dataset = dataset.filter(column_conditions={
     "score": (">", 0.8),
     "age": ("<=", 30)
 })
+
+# Show progress while filtering (useful for large datasets)
+dataset = dataset.filter(
+    column_conditions={"status": "active"}, 
+    show_progress=True
+)
 ```
 
 ### 2. Filtering via Predicate (Python-side)
@@ -35,7 +41,10 @@ dataset = dataset.filter(column_conditions={
 If the conditions in `column_conditions` are not enough, you can pass a predicate function. It will be called for each row. This is slower but more flexible.
 
 ```python
-dataset = dataset.filter(predicate=lambda x: len(x["text"]) > 100 and x["label"] in [1, 5])
+dataset = dataset.filter(
+    predicate=lambda x: len(x["text"]) > 100 and x["label"] in [1, 5],
+    show_progress=True
+)
 ```
 
 ### 3. File Filtering

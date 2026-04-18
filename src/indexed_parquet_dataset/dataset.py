@@ -113,6 +113,12 @@ class IndexedParquetDataset(Dataset):
                 self._indices = np.arange(self.index.total_rows)
         return self._indices
 
+    @indices.setter
+    def indices(self, value: np.ndarray):
+        """Sets the array of active indices, clearing any pending filters."""
+        self._indices = value
+        self._pending_filter = None
+
     def _materialize_filter(self) -> None:
         """Executes the pending filter with potential early stopping (Operator Fusion)."""
         if not self._pending_filter:

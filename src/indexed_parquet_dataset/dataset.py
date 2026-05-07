@@ -284,13 +284,13 @@ class IndexedParquetDataset(Dataset):
     def __getstate__(self):
         """Returns the state for pickling, excluding non-picklable file handles."""
         state = self.__dict__.copy()
-        state['_file_handles'] = {} # Don't pickle open handles
+        state['_file_handles'] = OrderedDict() # Don't pickle open handles, but keep type
         return state
 
     def __setstate__(self, state):
         """Restores the state after unpickling."""
         self.__dict__.update(state)
-        self._file_handles = {} # Re-initialize empty cache
+        self._file_handles = OrderedDict() # Re-initialize empty cache as OrderedDict
 
     @classmethod
     def from_folder(

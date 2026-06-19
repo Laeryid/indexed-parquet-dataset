@@ -554,6 +554,22 @@ class IndexedParquetDataset(Dataset):
                 
         return results_ordered
 
+    def __iter__(self):
+        worker_info = None
+        if _TORCH_AVAILABLE:
+            try:
+                worker_info = torch.utils.data.get_worker_info()
+            except Exception:
+                pass
+                
+        if worker_info is not None:
+            ds = self.shard(worker_info.num_workers, worker_info.id)
+        else:
+            ds = self
+
+        for i in range(len(ds)):
+            yield ds[i]
+
     def __getitem__(self, idx: Union[int, List[int], slice, np.ndarray]) -> Any:
         if isinstance(idx, (int, np.integer)):
             if idx < 0: idx += len(self)
@@ -660,6 +676,26 @@ class IndexedParquetDataset(Dataset):
     def select(self, range_or_indices: Union[slice, List[int], np.ndarray]) -> 'IndexedParquetDataset':
         new_indices = self.indices[range_or_indices]
         return self._clone_with_indices(new_indices)
+
+    def shard(self, num_workers: int, worker_id: int) -> 'IndexedParquetDataset':
+        """Returns a sharded version of the dataset for multi-processing.
+        
+        Args:
+            num_workers: Total number of workers.
+            worker_id: ID of the current worker (0 to num_workers - 1).
+            
+        Returns:
+            A new IndexedParquetDataset containing only this worker's shard.
+        """
+        if num_workers <= 1:
+            return self
+            
+        n = len(self.indices)
+        chunk_size = (n + num_workers - 1) // num_workers
+        start = worker_id * chunk_size
+        end = min(start + chunk_size, n)
+        
+        return self.select(slice(start, end))
 
     def limit(self, n: int) -> 'IndexedParquetDataset':
         """Limits the dataset to the first n rows.
@@ -921,7 +957,22 @@ class IndexedParquetDataset(Dataset):
             shuffle: Whether to shuffle before iterating.
             seed: Random seed for shuffling.
         """
-        ds = self.shuffle(seed) if shuffle else self
+        ds = self
+        worker_info = None
+        if _TORCH_AVAILABLE:
+            try:
+                worker_info = torch.utils.data.get_worker_info()
+            except Exception:
+                pass
+                
+        if worker_info is not None:
+            ds = ds.shard(worker_info.num_workers, worker_info.id)
+            if seed is not None:
+                seed = seed + worker_info.id
+                
+        if shuffle:
+            ds = ds.shuffle(seed)
+            
         n = len(ds)
         for i in range(0, n, batch_size):
             end = min(i + batch_size, n)

@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.2] - 2026-09-02
+## [0.4.3] - 2026-09-02
+
+### Added
+- Added LRU caching for `Row Group` tables during dataset iteration.
+- Dynamically scale `max_cached_row_groups` during `shuffle()` based on `rg_buffer` size to prevent I/O thrashing completely.
+
+### Fixed
+- Fixed extreme I/O thrashing and memory overhead when iterating over shuffled datasets by preventing multiple PyArrow reads of the same Row Group across index batches.
 
 ### Fixed
 - Fixed CI release build issue where `setuptools_scm` generated dirty dev versions by removing `_version.py` from git tracking.

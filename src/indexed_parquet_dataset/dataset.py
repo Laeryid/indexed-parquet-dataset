@@ -51,9 +51,10 @@ class IndexedParquetDataset(Dataset):
         fill_values_by_column: Optional[Dict[str, Any]] = None,
         auto_fill: bool = False,
         max_open_files: int = 128,
-        _type_casts: Optional[Dict[str, type]] = None,
+        _type_casts: Optional[Dict[str, pa.DataType]] = None,
         selected_columns: Optional[List[str]] = None,
-        _pending_filter: Optional[Dict[str, Any]] = None,
+        _pending_filter: Optional[Dict] = None,
+        max_cached_row_groups: int = 16,
     ):
         """Initializes the dataset.
 
@@ -102,6 +103,10 @@ class IndexedParquetDataset(Dataset):
         # LRU cache for open file handles (Lazy Loading)
         self.max_open_files = max_open_files
         self._file_handles: OrderedDict[int, pq.ParquetFile] = OrderedDict()
+
+        # LRU cache for read row groups to prevent I/O thrashing during shuffled batch access
+        self.max_cached_row_groups = max_cached_row_groups
+        self._rg_cache: OrderedDict[tuple, pa.Table] = OrderedDict()
 
     @property
     def indices(self) -> np.ndarray:
@@ -285,12 +290,14 @@ class IndexedParquetDataset(Dataset):
         """Returns the state for pickling, excluding non-picklable file handles."""
         state = self.__dict__.copy()
         state['_file_handles'] = OrderedDict() # Don't pickle open handles, but keep type
+        state['_rg_cache'] = OrderedDict() # Don't pickle cached row groups
         return state
 
     def __setstate__(self, state):
         """Restores the state after unpickling."""
         self.__dict__.update(state)
         self._file_handles = OrderedDict() # Re-initialize empty cache as OrderedDict
+        self._rg_cache = OrderedDict()
 
     @classmethod
     def from_folder(
@@ -377,6 +384,23 @@ class IndexedParquetDataset(Dataset):
             if len(self._file_handles) > self.max_open_files:
                 self._file_handles.popitem(last=False)  # evict least recently used
         return self._file_handles[file_idx]
+
+    def _get_row_group(self, file_idx: int, rg_idx: int, columns: Optional[List[str]]) -> pa.Table:
+        cols_key = tuple(columns) if columns is not None else None
+        cache_key = (file_idx, rg_idx, cols_key)
+        
+        if cache_key in self._rg_cache:
+            self._rg_cache.move_to_end(cache_key)
+            return self._rg_cache[cache_key]
+
+        pf = self._get_file_handle(file_idx)
+        table = pf.read_row_group(rg_idx, columns=columns)
+        
+        self._rg_cache[cache_key] = table
+        if len(self._rg_cache) > self.max_cached_row_groups:
+            self._rg_cache.popitem(last=False)
+            
+        return table
 
     def _get_fill_value(self, column_name: str) -> Any:
         """Determines the fill value for a missing column based on hierarchy."""
@@ -482,7 +506,7 @@ class IndexedParquetDataset(Dataset):
                 requested_source_cols = None
 
         for rg_idx, rg_local_indices in rg_to_indices.items():
-            table = pf.read_row_group(rg_idx, columns=requested_source_cols)
+            table = self._get_row_group(file_idx, rg_idx, columns=requested_source_cols)
             rg_start_offset = sum(file_info.row_groups[:rg_idx])
             
             # Optimization: Use take() to get only needed rows if indexing is sparse or out of order
@@ -677,9 +701,13 @@ class IndexedParquetDataset(Dataset):
             final_indices.append(window_pool_arr)
             
         if not final_indices:
-            return self._clone_with_indices(np.array([], dtype=int))
+            new_ds = self._clone_with_indices(np.array([], dtype=int))
+            new_ds.max_cached_row_groups = max(new_ds.max_cached_row_groups, rg_buffer * 2)
+            return new_ds
             
-        return self._clone_with_indices(np.concatenate(final_indices))
+        new_ds = self._clone_with_indices(np.concatenate(final_indices))
+        new_ds.max_cached_row_groups = max(new_ds.max_cached_row_groups, rg_buffer * 2)
+        return new_ds
 
     def select(self, range_or_indices: Union[slice, List[int], np.ndarray]) -> 'IndexedParquetDataset':
         new_indices = self.indices[range_or_indices]
@@ -731,7 +759,8 @@ class IndexedParquetDataset(Dataset):
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
             selected_columns=self.selected_columns,
-            _pending_filter=_pending_filter if _pending_filter is not None else (self._pending_filter.copy() if self._pending_filter else None)
+            _pending_filter=_pending_filter if _pending_filter is not None else (self._pending_filter.copy() if self._pending_filter else None),
+            max_cached_row_groups=self.max_cached_row_groups,
         )
 
     def _clone_with_mapper(self, new_mapper: SchemaMapper) -> 'IndexedParquetDataset':
@@ -742,7 +771,8 @@ class IndexedParquetDataset(Dataset):
             max_open_files=self.max_open_files,
             _type_casts=self._type_casts.copy(),
             selected_columns=self.selected_columns,
-            _pending_filter=self._pending_filter.copy() if self._pending_filter else None
+            _pending_filter=self._pending_filter.copy() if self._pending_filter else None,
+            max_cached_row_groups=self.max_cached_row_groups,
         )
 
     def map(

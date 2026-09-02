@@ -567,8 +567,16 @@ class IndexedParquetDataset(Dataset):
         else:
             ds = self
 
-        for i in range(len(ds)):
-            yield ds[i]
+        # Internal buffering to prevent PyArrow memory leak and I/O thrashing
+        # when reading rows one by one from a shuffled dataset.
+        n_rows = len(ds)
+        internal_batch_size = 1024
+        for start_idx in range(0, n_rows, internal_batch_size):
+            end_idx = min(start_idx + internal_batch_size, n_rows)
+            # Use __getitems__ with a list of indices to fetch rows efficiently
+            batch_items = ds.__getitems__(list(range(start_idx, end_idx)))
+            for item in batch_items:
+                yield item
 
     def __getitem__(self, idx: Union[int, List[int], slice, np.ndarray]) -> Any:
         if isinstance(idx, (int, np.integer)):
@@ -877,8 +885,8 @@ class IndexedParquetDataset(Dataset):
         if stratify_by:
             # Read labels for all indices (required for stratification)
             labels = []
-            for i in range(len(self)):
-                labels.append(self[i][stratify_by])
+            for row in self:
+                labels.append(row[stratify_by])
             labels = np.array(labels)
             
             unique_labels, inverse = np.unique(labels, return_inverse=True)

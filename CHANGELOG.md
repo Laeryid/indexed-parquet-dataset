@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-02
+
+### Fixed
+- Fixed CI release build issue where `setuptools_scm` generated dirty dev versions by removing `_version.py` from git tracking.
+
 ## [0.4.1] - 2026-09-02
 
 ### Fixed

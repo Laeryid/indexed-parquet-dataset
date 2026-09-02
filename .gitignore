@@ -19,4 +19,4 @@ repro_issue/
 test_data_fix/
 test_data_info/
 test_verify/
-scratch/
+scratch/src/indexed_parquet_dataset/_version.py
